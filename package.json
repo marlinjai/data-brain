@@ -1,0 +1,23 @@
+{
+  "name": "data-brain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Structured data as a service — the database equivalent of Storage Brain",
+  "scripts": {
+    "dev": "pnpm --filter @data-brain/api dev",
+    "dev:sdk": "pnpm --filter @marlinjai/data-brain-sdk dev",
+    "build": "pnpm -r --if-present run build",
+    "build:sdk": "pnpm --filter @marlinjai/data-brain-sdk build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "clean": "rm -rf packages/*/dist packages/*/.wrangler",
+    "publish:sdk": "pnpm --filter @marlinjai/data-brain-sdk build && pnpm --filter @marlinjai/data-brain-sdk publish --access public"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
