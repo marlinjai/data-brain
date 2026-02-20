@@ -4,6 +4,8 @@
   "private": true,
   "description": "Structured data as a service — the database equivalent of Storage Brain",
   "scripts": {
+    "docs:dev": "clearify dev",
+    "docs:build": "clearify build",
     "dev": "pnpm --filter @data-brain/api dev",
     "dev:sdk": "pnpm --filter @marlinjai/data-brain-sdk dev",
     "build": "pnpm -r --if-present run build",
@@ -14,6 +16,7 @@
     "publish:sdk": "pnpm --filter @marlinjai/data-brain-sdk build && pnpm --filter @marlinjai/data-brain-sdk publish --access public"
   },
   "devDependencies": {
+    "@marlinjai/clearify": "^1.6.6",
     "@types/node": "^20.11.0",
     "typescript": "^5.3.3"
   },
