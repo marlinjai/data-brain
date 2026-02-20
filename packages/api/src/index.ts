@@ -6,6 +6,8 @@ import { requestId } from 'hono/request-id';
 
 import type { AppEnv } from './env';
 import { errorHandler } from './middleware/error-handler';
+import { tenantRoutes } from './routes/tenant';
+import { adminRoutes } from './routes/admin';
 
 const app = new Hono<AppEnv>();
 
@@ -26,7 +28,9 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString(), environment: c.env.ENVIRONMENT });
 });
 
-// Routes will be mounted here after each task
+// Routes
+app.route('/api/v1/tenant', tenantRoutes);
+app.route('/api/v1/admin', adminRoutes);
 
 app.notFound((c) => {
   return c.json({ error: { code: 'NOT_FOUND', message: `Route ${c.req.method} ${c.req.path} not found` } }, 404);
