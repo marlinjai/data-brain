@@ -8,7 +8,10 @@ import type {
   CreateRelationInput, CreateFileRefInput,
   CellValue,
 } from '@marlinjai/data-table-core';
-import type { DataBrainConfig, TenantInfo, BatchOperation, BatchResult } from './types';
+import type {
+  DataBrainConfig, TenantInfo, BatchOperation, BatchResult,
+  Workspace, CreateWorkspaceInput, UpdateWorkspaceInput,
+} from './types';
 import { DataBrainError, NetworkError, parseApiError } from './errors';
 import { RETRY_CONFIG } from './constants';
 
@@ -21,6 +24,7 @@ export class DataBrain {
   private readonly baseUrl: string;
   private readonly timeout: number;
   private readonly maxRetries: number;
+  private readonly workspaceId?: string;
 
   constructor(config: DataBrainConfig) {
     if (!config.apiKey) throw new DataBrainError('API key is required', 'CONFIGURATION_ERROR');
@@ -28,6 +32,20 @@ export class DataBrain {
     this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.workspaceId = config.workspaceId;
+  }
+
+  /**
+   * Returns a new DataBrain instance scoped to a specific workspace.
+   */
+  withWorkspace(workspaceId: string): DataBrain {
+    return new DataBrain({
+      apiKey: this.apiKey,
+      baseUrl: this.baseUrl,
+      timeout: this.timeout,
+      maxRetries: this.maxRetries,
+      workspaceId,
+    });
   }
 
   // ─── Tables ──────────────────────────────────────────────────────────────
@@ -248,6 +266,33 @@ export class DataBrain {
     return response.results;
   }
 
+  // ─── Workspaces ──────────────────────────────────────────────────────────
+
+  async createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
+    return this.request<Workspace>('POST', '/api/v1/workspaces', input);
+  }
+
+  async listWorkspaces(): Promise<Workspace[]> {
+    return this.request<Workspace[]>('GET', '/api/v1/workspaces');
+  }
+
+  async getWorkspace(workspaceId: string): Promise<Workspace | null> {
+    try {
+      return await this.request<Workspace>('GET', `/api/v1/workspaces/${workspaceId}`);
+    } catch (err) {
+      if (err instanceof DataBrainError && err.statusCode === 404) return null;
+      throw err;
+    }
+  }
+
+  async updateWorkspace(workspaceId: string, updates: UpdateWorkspaceInput): Promise<Workspace> {
+    return this.request<Workspace>('PATCH', `/api/v1/workspaces/${workspaceId}`, updates);
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<void> {
+    await this.request('DELETE', `/api/v1/workspaces/${workspaceId}`);
+  }
+
   // ─── Tenant ──────────────────────────────────────────────────────────────
 
   async getTenantInfo(): Promise<TenantInfo> {
@@ -265,12 +310,17 @@ export class DataBrain {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        };
+        if (this.workspaceId) {
+          headers['X-Workspace-Id'] = this.workspaceId;
+        }
+
         const response = await fetch(url, {
           method,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
+          headers,
           body: body ? JSON.stringify(body) : undefined,
           signal: controller.signal,
         });

@@ -8,6 +8,7 @@ import type { AppEnv } from './env';
 import { errorHandler } from './middleware/error-handler';
 import { tenantRoutes } from './routes/tenant';
 import { adminRoutes } from './routes/admin';
+import { workspaceRoutes } from './routes/workspaces';
 import { tableRoutes } from './routes/tables';
 import { columnRoutes } from './routes/columns';
 import { rowRoutes } from './routes/rows';
@@ -29,7 +30,7 @@ app.use('*', logger());
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
   exposeHeaders: ['X-Request-Id'],
   maxAge: 86400,
 }));
@@ -43,6 +44,9 @@ app.get('/health', (c) => {
 // Admin & tenant routes first (own auth middleware, must not be intercepted by tenant auth)
 app.route('/api/v1/admin', adminRoutes);
 app.route('/api/v1/tenant', tenantRoutes);
+
+// Workspace routes (tenant authMiddleware)
+app.route('/api/v1/workspaces', workspaceRoutes);
 
 // Data routes (all use tenant authMiddleware)
 app.route('/api/v1/tables', tableRoutes);

@@ -3,6 +3,7 @@ import type { AppEnv } from '../env';
 import { authMiddleware } from '../middleware/auth';
 import { getAdapter, getWorkspaceId } from '../adapter';
 import { verifyTableOwnership } from '../middleware/ownership';
+import { verifyWorkspaceAccess } from '../middleware/workspace';
 import { createTableSchema, updateTableSchema } from '@data-brain/shared';
 
 const tableRoutes = new Hono<AppEnv>();
@@ -11,6 +12,10 @@ tableRoutes.use('*', authMiddleware);
 tableRoutes.get('/', async (c) => {
   const adapter = getAdapter(c);
   const workspaceId = getWorkspaceId(c);
+  // If workspace was specified via header, verify it belongs to this tenant
+  if (c.req.header('X-Workspace-Id')) {
+    await verifyWorkspaceAccess(c, workspaceId);
+  }
   const tables = await adapter.listTables(workspaceId);
   return c.json(tables);
 });
@@ -19,6 +24,10 @@ tableRoutes.post('/', async (c) => {
   const body = createTableSchema.parse(await c.req.json());
   const adapter = getAdapter(c);
   const workspaceId = getWorkspaceId(c);
+  // If workspace was specified via header, verify it belongs to this tenant
+  if (c.req.header('X-Workspace-Id')) {
+    await verifyWorkspaceAccess(c, workspaceId);
+  }
   const table = await adapter.createTable({ ...body, workspaceId });
   return c.json(table, 201);
 });

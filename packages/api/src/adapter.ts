@@ -7,5 +7,10 @@ export function getAdapter(c: Context<AppEnv>): D1Adapter {
 }
 
 export function getWorkspaceId(c: Context<AppEnv>): string {
+  const headerWorkspaceId = c.req.header('X-Workspace-Id');
+  if (headerWorkspaceId) {
+    return headerWorkspaceId;
+  }
+  // Fallback: use tenant.id as workspace (backward compatible)
   return c.get('tenant').id;
 }

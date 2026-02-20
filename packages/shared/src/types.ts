@@ -32,6 +32,34 @@ export interface TenantInfo {
 }
 
 /**
+ * Workspace within a tenant
+ */
+export interface Workspace {
+  id: string;
+  tenantId: string;
+  name: string;
+  slug: string;
+  quotaRows: number | null;
+  usedRows: number;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Public workspace info (subset)
+ */
+export interface WorkspaceInfo {
+  id: string;
+  name: string;
+  slug: string;
+  quotaRows: number | null;
+  usedRows: number;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/**
  * Batch operation — one unit in a POST /rpc/batch request
  */
 export interface BatchOperation {

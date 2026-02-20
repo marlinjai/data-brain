@@ -150,6 +150,25 @@ export const batchRequestSchema = z.object({
   operations: z.array(batchOperationSchema).min(1).max(50),
 });
 
+export const workspaceSlugSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens');
+
+export const createWorkspaceSchema = z.object({
+  name: z.string().min(1).max(255),
+  slug: workspaceSlugSchema,
+  quotaRows: z.number().int().positive().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const updateWorkspaceSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  quotaRows: z.number().int().positive().nullable().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
 export const createTenantSchema = z.object({
   name: z.string().min(1).max(100),
   quotaRows: z.number().int().positive().optional(),

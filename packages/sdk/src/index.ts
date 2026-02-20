@@ -2,7 +2,10 @@
 export { DataBrain, DataBrain as default } from './client';
 
 // Types
-export type { DataBrainConfig, TenantInfo, BatchOperation, BatchResult } from './types';
+export type {
+  DataBrainConfig, TenantInfo, BatchOperation, BatchResult,
+  Workspace, CreateWorkspaceInput, UpdateWorkspaceInput,
+} from './types';
 
 // Errors
 export {
