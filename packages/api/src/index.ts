@@ -40,6 +40,11 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString(), environment: c.env.ENVIRONMENT });
 });
 
+// Admin & tenant routes first (own auth middleware, must not be intercepted by tenant auth)
+app.route('/api/v1/admin', adminRoutes);
+app.route('/api/v1/tenant', tenantRoutes);
+
+// Data routes (all use tenant authMiddleware)
 app.route('/api/v1/tables', tableRoutes);
 app.route('/api/v1', columnRoutes);
 app.route('/api/v1', rowRoutes);
@@ -49,8 +54,6 @@ app.route('/api/v1', relationRoutes);
 app.route('/api/v1', fileRefRoutes);
 // SECURITY: Batch endpoint disabled — see import comment above (I3)
 // app.route('/api/v1', batchRoutes);
-app.route('/api/v1/tenant', tenantRoutes);
-app.route('/api/v1/admin', adminRoutes);
 
 app.notFound((c) => {
   return c.json({ error: { code: 'NOT_FOUND', message: `Route ${c.req.method} ${c.req.path} not found` } }, 404);
