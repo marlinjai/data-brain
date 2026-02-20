@@ -1,20 +1,12 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { authMiddleware } from '../middleware/auth';
-import { ApiError } from '../middleware/error-handler';
-import { getAdapter, getWorkspaceId } from '../adapter';
+import { getAdapter } from '../adapter';
+import { verifyRowOwnership } from '../middleware/ownership';
 import { createRelationSchema, deleteRelationSchema } from '@data-brain/shared';
 
 const relationRoutes = new Hono<AppEnv>();
 relationRoutes.use('*', authMiddleware);
-
-async function verifyRowOwnership(c: any, adapter: any, rowId: string) {
-  const row = await adapter.getRow(rowId);
-  if (!row) throw ApiError.notFound('Row not found');
-  const table = await adapter.getTable(row.tableId);
-  if (!table || table.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Row not found');
-  return row;
-}
 
 relationRoutes.post('/relations', async (c) => {
   const body = createRelationSchema.parse(await c.req.json());

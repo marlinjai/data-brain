@@ -47,9 +47,16 @@ export async function adminAuthMiddleware(c: Context<AppEnv>, next: Next) {
   if (!authHeader?.startsWith('Bearer ')) throw ApiError.unauthorized('Missing admin key');
 
   const key = authHeader.slice(7);
-  if (!c.env.ADMIN_API_KEY || key !== c.env.ADMIN_API_KEY) {
-    throw ApiError.unauthorized('Invalid admin key');
-  }
+  if (!c.env.ADMIN_API_KEY) throw ApiError.unauthorized('Admin endpoint not configured');
+
+  // Constant-time comparison to prevent timing attacks
+  const encoder = new TextEncoder();
+  const a = encoder.encode(key);
+  const b = encoder.encode(c.env.ADMIN_API_KEY);
+  if (a.byteLength !== b.byteLength) throw ApiError.unauthorized('Invalid admin key');
+
+  const isEqual = crypto.subtle.timingSafeEqual(a, b);
+  if (!isEqual) throw ApiError.unauthorized('Invalid admin key');
 
   await next();
 }

@@ -1,20 +1,12 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { authMiddleware } from '../middleware/auth';
-import { ApiError } from '../middleware/error-handler';
-import { getAdapter, getWorkspaceId } from '../adapter';
+import { getAdapter } from '../adapter';
+import { verifyColumnOwnership } from '../middleware/ownership';
 import { createSelectOptionSchema, updateSelectOptionSchema, reorderIdsSchema } from '@data-brain/shared';
 
 const selectOptionRoutes = new Hono<AppEnv>();
 selectOptionRoutes.use('*', authMiddleware);
-
-async function verifyColumnOwnership(c: any, adapter: any, columnId: string) {
-  const column = await adapter.getColumn(columnId);
-  if (!column) throw ApiError.notFound('Column not found');
-  const table = await adapter.getTable(column.tableId);
-  if (!table || table.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Column not found');
-  return column;
-}
 
 selectOptionRoutes.get('/columns/:columnId/options', async (c) => {
   const adapter = getAdapter(c);
@@ -30,6 +22,10 @@ selectOptionRoutes.post('/columns/:columnId/options', async (c) => {
   return c.json(option, 201);
 });
 
+// TODO: C6 — updateSelectOption has no ownership check. The D1Adapter does not expose
+// a getSelectOption(id) method, so we cannot look up which column an option belongs to
+// without querying the database directly. Option IDs are UUIDs (unguessable), so the
+// risk is low, but this should be addressed when the adapter gains a lookup method.
 selectOptionRoutes.patch('/options/:optionId', async (c) => {
   const updates = updateSelectOptionSchema.parse(await c.req.json());
   const adapter = getAdapter(c);
@@ -37,6 +33,9 @@ selectOptionRoutes.patch('/options/:optionId', async (c) => {
   return c.json(updated);
 });
 
+// TODO: C6 — deleteSelectOption has no ownership check. Same limitation as updateSelectOption
+// above: the adapter does not expose getSelectOption(id). Option IDs are UUIDs (unguessable),
+// so the risk is low, but this should be addressed when the adapter gains a lookup method.
 selectOptionRoutes.delete('/options/:optionId', async (c) => {
   const adapter = getAdapter(c);
   await adapter.deleteSelectOption(c.req.param('optionId'));

@@ -1,26 +1,15 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { AppEnv } from '../env';
 import { authMiddleware } from '../middleware/auth';
 import { ApiError } from '../middleware/error-handler';
-import { getAdapter, getWorkspaceId } from '../adapter';
+import { getAdapter } from '../adapter';
+import { verifyTableOwnership, verifyRowOwnership } from '../middleware/ownership';
 import { createRowSchema, updateRowCellsSchema, queryOptionsSchema, bulkRowIdsSchema } from '@data-brain/shared';
 import type { QueryOptions } from '@marlinjai/data-table-core';
 
 const rowRoutes = new Hono<AppEnv>();
 rowRoutes.use('*', authMiddleware);
-
-async function verifyTableOwnership(c: any, adapter: any, tableId: string) {
-  const table = await adapter.getTable(tableId);
-  if (!table || table.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Table not found');
-  return table;
-}
-
-async function verifyRowOwnership(c: any, adapter: any, rowId: string) {
-  const row = await adapter.getRow(rowId);
-  if (!row) throw ApiError.notFound('Row not found');
-  await verifyTableOwnership(c, adapter, row.tableId);
-  return row;
-}
 
 // GET /api/v1/tables/:tableId/rows
 rowRoutes.get('/tables/:tableId/rows', async (c) => {
@@ -34,8 +23,14 @@ rowRoutes.get('/tables/:tableId/rows', async (c) => {
   if (url.searchParams.has('includeArchived')) rawQuery.includeArchived = url.searchParams.get('includeArchived');
   if (url.searchParams.has('parentRowId')) rawQuery.parentRowId = url.searchParams.get('parentRowId');
   if (url.searchParams.has('includeSubItems')) rawQuery.includeSubItems = url.searchParams.get('includeSubItems');
-  if (url.searchParams.has('filters')) rawQuery.filters = JSON.parse(url.searchParams.get('filters')!);
-  if (url.searchParams.has('sorts')) rawQuery.sorts = JSON.parse(url.searchParams.get('sorts')!);
+  if (url.searchParams.has('filters')) {
+    try { rawQuery.filters = JSON.parse(url.searchParams.get('filters')!); }
+    catch { throw ApiError.badRequest('Invalid JSON in filters parameter'); }
+  }
+  if (url.searchParams.has('sorts')) {
+    try { rawQuery.sorts = JSON.parse(url.searchParams.get('sorts')!); }
+    catch { throw ApiError.badRequest('Invalid JSON in sorts parameter'); }
+  }
   const query = queryOptionsSchema.parse(Object.keys(rawQuery).length > 0 ? rawQuery : undefined);
   const result = await adapter.getRows(c.req.param('tableId'), query as QueryOptions);
   return c.json(result);
@@ -92,10 +87,13 @@ rowRoutes.post('/rows/:rowId/unarchive', async (c) => {
 
 // POST /api/v1/tables/:tableId/rows/bulk
 rowRoutes.post('/tables/:tableId/rows/bulk', async (c) => {
-  const inputs = (await c.req.json()) as Array<{ cells?: Record<string, unknown>; parentRowId?: string }>;
+  const rawInputs = z.array(z.object({
+    cells: z.record(z.unknown()).optional(),
+    parentRowId: z.string().uuid().optional(),
+  })).min(1).max(1000).parse(await c.req.json());
   const adapter = getAdapter(c);
   await verifyTableOwnership(c, adapter, c.req.param('tableId'));
-  const fullInputs = inputs.map((input) => ({ tableId: c.req.param('tableId'), ...input }));
+  const fullInputs = rawInputs.map((input) => ({ tableId: c.req.param('tableId'), ...input }));
   const rows = await adapter.bulkCreateRows(fullInputs);
   return c.json(rows, 201);
 });
@@ -104,7 +102,10 @@ rowRoutes.post('/tables/:tableId/rows/bulk', async (c) => {
 rowRoutes.delete('/rows/bulk', async (c) => {
   const rowIds = bulkRowIdsSchema.parse(await c.req.json());
   const adapter = getAdapter(c);
-  if (rowIds.length > 0) await verifyRowOwnership(c, adapter, rowIds[0]!);
+  // Verify all rows belong to tables owned by this tenant
+  for (const rowId of rowIds) {
+    await verifyRowOwnership(c, adapter, rowId);
+  }
   await adapter.bulkDeleteRows(rowIds);
   return c.json({ success: true });
 });
@@ -113,7 +114,10 @@ rowRoutes.delete('/rows/bulk', async (c) => {
 rowRoutes.post('/rows/bulk/archive', async (c) => {
   const rowIds = bulkRowIdsSchema.parse(await c.req.json());
   const adapter = getAdapter(c);
-  if (rowIds.length > 0) await verifyRowOwnership(c, adapter, rowIds[0]!);
+  // Verify all rows belong to tables owned by this tenant
+  for (const rowId of rowIds) {
+    await verifyRowOwnership(c, adapter, rowId);
+  }
   await adapter.bulkArchiveRows(rowIds);
   return c.json({ success: true });
 });

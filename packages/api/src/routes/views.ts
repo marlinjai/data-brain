@@ -2,17 +2,12 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { authMiddleware } from '../middleware/auth';
 import { ApiError } from '../middleware/error-handler';
-import { getAdapter, getWorkspaceId } from '../adapter';
+import { getAdapter } from '../adapter';
+import { verifyTableOwnership } from '../middleware/ownership';
 import { createViewSchema, updateViewSchema, reorderIdsSchema } from '@data-brain/shared';
 
 const viewRoutes = new Hono<AppEnv>();
 viewRoutes.use('*', authMiddleware);
-
-async function verifyTableOwnership(c: any, adapter: any, tableId: string) {
-  const table = await adapter.getTable(tableId);
-  if (!table || table.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Table not found');
-  return table;
-}
 
 viewRoutes.get('/tables/:tableId/views', async (c) => {
   const adapter = getAdapter(c);

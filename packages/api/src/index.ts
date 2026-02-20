@@ -15,7 +15,11 @@ import { viewRoutes } from './routes/views';
 import { selectOptionRoutes } from './routes/select-options';
 import { relationRoutes } from './routes/relations';
 import { fileRefRoutes } from './routes/file-refs';
-import { batchRoutes } from './routes/batch';
+// SECURITY: Batch endpoint disabled until proper per-operation tenant ownership
+// checks are implemented. The batch RPC bypasses tenant isolation because it
+// calls adapter methods directly without verifying resource ownership for each
+// operation. See issue I3 in the security review.
+// import { batchRoutes } from './routes/batch';
 
 const app = new Hono<AppEnv>();
 
@@ -43,7 +47,8 @@ app.route('/api/v1', viewRoutes);
 app.route('/api/v1', selectOptionRoutes);
 app.route('/api/v1', relationRoutes);
 app.route('/api/v1', fileRefRoutes);
-app.route('/api/v1', batchRoutes);
+// SECURITY: Batch endpoint disabled — see import comment above (I3)
+// app.route('/api/v1', batchRoutes);
 app.route('/api/v1/tenant', tenantRoutes);
 app.route('/api/v1/admin', adminRoutes);
 

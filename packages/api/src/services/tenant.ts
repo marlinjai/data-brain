@@ -3,11 +3,9 @@ import type { Tenant, TenantInfo } from '@data-brain/shared';
 import { hashApiKey } from '../middleware/auth';
 
 function generateApiKey(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let key = '';
-  for (let i = 0; i < 32; i++) {
-    key += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   return `${API_KEY_PREFIX_LIVE}${key}`;
 }
 

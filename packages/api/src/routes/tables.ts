@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../env';
 import { authMiddleware } from '../middleware/auth';
-import { ApiError } from '../middleware/error-handler';
 import { getAdapter, getWorkspaceId } from '../adapter';
+import { verifyTableOwnership } from '../middleware/ownership';
 import { createTableSchema, updateTableSchema } from '@data-brain/shared';
 
 const tableRoutes = new Hono<AppEnv>();
@@ -25,25 +25,21 @@ tableRoutes.post('/', async (c) => {
 
 tableRoutes.get('/:tableId', async (c) => {
   const adapter = getAdapter(c);
-  const table = await adapter.getTable(c.req.param('tableId'));
-  if (!table) throw ApiError.notFound('Table not found');
-  if (table.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Table not found');
+  const table = await verifyTableOwnership(c, adapter, c.req.param('tableId'));
   return c.json(table);
 });
 
 tableRoutes.patch('/:tableId', async (c) => {
   const updates = updateTableSchema.parse(await c.req.json());
   const adapter = getAdapter(c);
-  const existing = await adapter.getTable(c.req.param('tableId'));
-  if (!existing || existing.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Table not found');
+  await verifyTableOwnership(c, adapter, c.req.param('tableId'));
   const table = await adapter.updateTable(c.req.param('tableId'), updates);
   return c.json(table);
 });
 
 tableRoutes.delete('/:tableId', async (c) => {
   const adapter = getAdapter(c);
-  const existing = await adapter.getTable(c.req.param('tableId'));
-  if (!existing || existing.workspaceId !== getWorkspaceId(c)) throw ApiError.notFound('Table not found');
+  await verifyTableOwnership(c, adapter, c.req.param('tableId'));
   await adapter.deleteTable(c.req.param('tableId'));
   return c.json({ success: true });
 });
