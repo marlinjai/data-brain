@@ -1,6 +1,6 @@
 {
   "name": "@marlinjai/data-brain-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript SDK for Data Brain — structured data as a service",
   "type": "module",
   "main": "./dist/index.cjs",
