@@ -1,0 +1,16 @@
+name = "data-brain-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "data-brain-db"
+database_id = "<TO_BE_CREATED>"
+
+[vars]
+ENVIRONMENT = "production"
+
+[env.staging]
+name = "data-brain-api-staging"
+[env.staging.vars]
+ENVIRONMENT = "staging"
