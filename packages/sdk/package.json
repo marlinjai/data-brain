@@ -35,6 +35,7 @@
   "author": "marlinjai",
   "license": "MIT",
   "dependencies": {
+    "@marlinjai/brain-core": "file:../../../brain-core",
     "@marlinjai/data-table-core": "^0.1.0"
   },
   "devDependencies": {

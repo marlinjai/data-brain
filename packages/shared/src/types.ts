@@ -1,23 +1,18 @@
+import type { BaseTenant, BaseWorkspace, BaseTenantContext } from '@marlinjai/brain-core';
+
 /**
- * Tenant stored in Data Brain's own tenants table
+ * Tenant stored in Data Brain's own tenants table — extends BaseTenant with data-specific quota fields
  */
-export interface Tenant {
-  id: string;
-  name: string;
-  apiKeyHash: string;
+export interface Tenant extends BaseTenant {
   quotaRows: number;
   usedRows: number;
   maxTables: number;
-  createdAt: number; // Unix timestamp
-  updatedAt: number;
 }
 
 /**
  * Tenant context attached to Hono request after auth
  */
-export interface TenantContext {
-  tenant: Tenant;
-}
+export type TenantContext = BaseTenantContext<Tenant>;
 
 /**
  * Public tenant info (no sensitive fields)
@@ -32,16 +27,11 @@ export interface TenantInfo {
 }
 
 /**
- * Workspace within a tenant
+ * Workspace within a tenant — extends BaseWorkspace with data-specific quota fields
  */
-export interface Workspace {
-  id: string;
-  tenantId: string;
-  name: string;
-  slug: string;
+export interface Workspace extends BaseWorkspace {
   quotaRows: number | null;
   usedRows: number;
-  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }

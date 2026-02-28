@@ -13,6 +13,7 @@
     "db:migrate:local": "wrangler d1 migrations apply data-brain-db --local"
   },
   "dependencies": {
+    "@marlinjai/brain-core": "file:../../../brain-core",
     "@data-brain/shared": "workspace:*",
     "@marlinjai/data-table-core": "^0.1.0",
     "@marlinjai/data-table-adapter-d1": "^0.1.0",

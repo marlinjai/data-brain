@@ -1,20 +1,10 @@
 import { z } from 'zod';
-import { API_KEY_PREFIX_LIVE, API_KEY_PREFIX_TEST, BATCH_METHODS, MAX_PAGE_LIMIT } from './constants';
+import { BATCH_METHODS, MAX_PAGE_LIMIT } from './constants';
 
-export const uuidSchema = z.string().uuid();
-
-export const apiKeySchema = z
-  .string()
-  .min(1, 'API key is required')
-  .refine(
-    (key) => key.startsWith(API_KEY_PREFIX_LIVE) || key.startsWith(API_KEY_PREFIX_TEST),
-    `API key must start with '${API_KEY_PREFIX_LIVE}' or '${API_KEY_PREFIX_TEST}'`
-  );
-
-export const cursorSchema = z
-  .string()
-  .regex(/^[A-Za-z0-9+/=]+$/, 'Invalid cursor format')
-  .optional();
+// Re-export shared schemas from brain-core
+export { uuidSchema, apiKeySchema, cursorSchema, workspaceSlugSchema } from '@marlinjai/brain-core';
+// Import cursorSchema locally for use in queryOptionsSchema
+import { cursorSchema } from '@marlinjai/brain-core';
 
 export const createTableSchema = z.object({
   workspaceId: z.string().min(1),
@@ -150,15 +140,9 @@ export const batchRequestSchema = z.object({
   operations: z.array(batchOperationSchema).min(1).max(50),
 });
 
-export const workspaceSlugSchema = z
-  .string()
-  .min(1)
-  .max(100)
-  .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens');
-
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(255),
-  slug: workspaceSlugSchema,
+  slug: z.string().min(1).max(100).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
   quotaRows: z.number().int().positive().optional(),
   metadata: z.record(z.unknown()).optional(),
 });

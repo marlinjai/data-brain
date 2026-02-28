@@ -1,13 +1,6 @@
-import { DEFAULT_QUOTA_ROWS, DEFAULT_MAX_TABLES, API_KEY_PREFIX_LIVE } from '@data-brain/shared';
+import { DEFAULT_QUOTA_ROWS, DEFAULT_MAX_TABLES } from '@data-brain/shared';
 import type { Tenant, TenantInfo } from '@data-brain/shared';
-import { hashApiKey } from '../middleware/auth';
-
-function generateApiKey(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  return `${API_KEY_PREFIX_LIVE}${key}`;
-}
+import { generateApiKey, hashApiKey } from '@marlinjai/brain-core';
 
 export async function createTenant(
   db: D1Database,

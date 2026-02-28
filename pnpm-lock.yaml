@@ -23,6 +23,9 @@ importers:
       '@data-brain/shared':
         specifier: workspace:*
         version: link:../shared
+      '@marlinjai/brain-core':
+        specifier: file:../../../brain-core
+        version: file:../brain-core(hono@4.12.0)(zod@3.25.76)
       '@marlinjai/data-table-adapter-d1':
         specifier: ^0.1.0
         version: 0.1.0(@cloudflare/workers-types@4.20260227.0)
@@ -48,6 +51,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@marlinjai/brain-core':
+        specifier: file:../../../brain-core
+        version: file:../brain-core(hono@4.12.0)(zod@3.25.76)
       '@marlinjai/data-table-core':
         specifier: ^0.1.0
         version: 0.1.0
@@ -61,6 +67,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@marlinjai/brain-core':
+        specifier: file:../../../brain-core
+        version: file:../brain-core(hono@4.12.0)(zod@3.25.76)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -827,6 +836,17 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@marlinjai/brain-core@file:../brain-core':
+    resolution: {directory: ../brain-core, type: directory}
+    peerDependencies:
+      hono: ^4.0.0
+      zod: ^3.22.4
+    peerDependenciesMeta:
+      hono:
+        optional: true
+      zod:
+        optional: true
 
   '@marlinjai/clearify@1.7.3':
     resolution: {integrity: sha512-CabrfRSVF2px6wlCZpM+nYR5BWzlJrYDXqxrSY1qpNjKJdtKrMAXQwIgveeAq1kcobToksF8Ra3+og7TIFw6hw==}
@@ -3359,6 +3379,11 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@marlinjai/brain-core@file:../brain-core(hono@4.12.0)(zod@3.25.76)':
+    optionalDependencies:
+      hono: 4.12.0
+      zod: 3.25.76
 
   '@marlinjai/clearify@1.7.3(@types/node@20.19.33)(@types/react@19.2.14)(jiti@2.6.1)(lightningcss@1.31.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.57.1)(yaml@2.8.2)':
     dependencies:

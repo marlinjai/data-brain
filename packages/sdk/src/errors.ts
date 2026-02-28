@@ -1,57 +1,61 @@
-export class DataBrainError extends Error {
+import {
+  BrainSdkError,
+  AuthenticationError as BaseAuthenticationError,
+  NotFoundError as BaseNotFoundError,
+  ValidationError as BaseValidationError,
+  QuotaExceededError as BaseQuotaExceededError,
+  NetworkError as BaseNetworkError,
+  ConflictError as BaseConflictError,
+} from '@marlinjai/brain-core/sdk';
+
+/**
+ * Base error class for Data Brain SDK — extends BrainSdkError
+ */
+export class DataBrainError extends BrainSdkError {
   constructor(
     message: string,
-    public code: string,
-    public statusCode?: number,
-    public details?: Record<string, unknown>
+    code: string,
+    statusCode?: number,
+    details?: Record<string, unknown>
   ) {
-    super(message);
+    super(message, code, statusCode, details);
     this.name = 'DataBrainError';
   }
 }
 
-export class AuthenticationError extends DataBrainError {
-  constructor(message = 'Authentication failed') {
-    super(message, 'AUTHENTICATION_ERROR', 401);
-    this.name = 'AuthenticationError';
-  }
-}
+/**
+ * Authentication error - invalid or missing API key
+ */
+export class AuthenticationError extends BaseAuthenticationError {}
 
-export class NotFoundError extends DataBrainError {
-  constructor(message = 'Resource not found') {
-    super(message, 'NOT_FOUND', 404);
-    this.name = 'NotFoundError';
-  }
-}
+/**
+ * Resource not found error
+ */
+export class NotFoundError extends BaseNotFoundError {}
 
-export class ValidationError extends DataBrainError {
-  constructor(message: string, public errors?: Array<{ path: string; message: string }>) {
-    super(message, 'VALIDATION_ERROR', 400, { errors });
-    this.name = 'ValidationError';
-  }
-}
+/**
+ * Validation error - request validation failed
+ */
+export class ValidationError extends BaseValidationError {}
 
-export class QuotaExceededError extends DataBrainError {
-  constructor(message = 'Quota exceeded') {
-    super(message, 'QUOTA_EXCEEDED', 403);
-    this.name = 'QuotaExceededError';
-  }
-}
+/**
+ * Quota exceeded error
+ */
+export class QuotaExceededError extends BaseQuotaExceededError {}
 
-export class ConflictError extends DataBrainError {
-  constructor(message: string) {
-    super(message, 'CONFLICT', 409);
-    this.name = 'ConflictError';
-  }
-}
+/**
+ * Conflict error
+ */
+export class ConflictError extends BaseConflictError {}
 
-export class NetworkError extends DataBrainError {
-  constructor(message = 'Network error occurred', public originalError?: Error) {
-    super(message, 'NETWORK_ERROR', undefined, { originalError: originalError?.message });
-    this.name = 'NetworkError';
-  }
-}
+/**
+ * Network error - connection issues
+ */
+export class NetworkError extends BaseNetworkError {}
 
+/**
+ * Batch error - domain-specific to Data Brain
+ */
 export class BatchError extends DataBrainError {
   constructor(
     message: string,
@@ -62,6 +66,9 @@ export class BatchError extends DataBrainError {
   }
 }
 
+/**
+ * Parse API error response into appropriate error class
+ */
 export function parseApiError(
   statusCode: number,
   response: { error?: { code?: string; message?: string; details?: Record<string, unknown> } }
@@ -69,18 +76,18 @@ export function parseApiError(
   const { code, message, details } = response.error ?? {};
   switch (code) {
     case 'UNAUTHORIZED':
-      return new AuthenticationError(message);
+      return new AuthenticationError(message) as unknown as DataBrainError;
     case 'NOT_FOUND':
-      return new NotFoundError(message);
+      return new NotFoundError(message) as unknown as DataBrainError;
     case 'VALIDATION_ERROR':
       return new ValidationError(
         message ?? 'Validation failed',
         details?.errors as Array<{ path: string; message: string }>
-      );
+      ) as unknown as DataBrainError;
     case 'QUOTA_EXCEEDED':
-      return new QuotaExceededError(message);
+      return new QuotaExceededError(message) as unknown as DataBrainError;
     case 'CONFLICT':
-      return new ConflictError(message ?? 'Conflict');
+      return new ConflictError(message ?? 'Conflict') as unknown as DataBrainError;
     default:
       return new DataBrainError(
         message ?? 'An error occurred',

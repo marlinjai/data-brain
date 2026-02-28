@@ -1,64 +1,38 @@
-import type { Context, Next } from 'hono';
-import type { AppEnv } from '../env';
-import { ApiError } from './error-handler';
+import { createAuthMiddleware, createAdminAuthMiddleware, hashApiKey } from '@marlinjai/brain-core';
 import { apiKeySchema } from '@data-brain/shared';
+import type { Tenant } from '@data-brain/shared';
 
-async function hashApiKey(apiKey: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(apiKey);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+/**
+ * Authentication middleware — validates API key and attaches tenant context
+ */
+export const authMiddleware = createAuthMiddleware<Tenant>({
+  apiKeySchema,
+  lookupTenant: async (c, apiKey) => {
+    const keyHash = await hashApiKey(apiKey);
 
-export async function authMiddleware(c: Context<AppEnv>, next: Next) {
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader) throw ApiError.unauthorized('Missing Authorization header');
-  if (!authHeader.startsWith('Bearer ')) throw ApiError.unauthorized('Invalid Authorization header format');
+    const row = await c.env.DB.prepare(
+      'SELECT id, name, api_key_hash, quota_rows, used_rows, max_tables, created_at, updated_at FROM tenants WHERE api_key_hash = ?'
+    ).bind(keyHash).first();
 
-  const apiKey = authHeader.slice(7);
-  const parseResult = apiKeySchema.safeParse(apiKey);
-  if (!parseResult.success) throw ApiError.unauthorized('Invalid API key format');
+    if (!row) return null;
 
-  const keyHash = await hashApiKey(apiKey);
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      apiKeyHash: row.api_key_hash as string,
+      quotaRows: row.quota_rows as number,
+      usedRows: row.used_rows as number,
+      maxTables: row.max_tables as number,
+      createdAt: row.created_at as number,
+      updatedAt: row.updated_at as number,
+    };
+  },
+});
 
-  const row = await c.env.DB.prepare(
-    'SELECT id, name, api_key_hash, quota_rows, used_rows, max_tables, created_at, updated_at FROM tenants WHERE api_key_hash = ?'
-  ).bind(keyHash).first();
+/**
+ * Admin authentication middleware — constant-time comparison against ADMIN_API_KEY
+ */
+export const adminAuthMiddleware = createAdminAuthMiddleware();
 
-  if (!row) throw ApiError.unauthorized('Invalid API key');
-
-  c.set('tenant', {
-    id: row.id as string,
-    name: row.name as string,
-    apiKeyHash: row.api_key_hash as string,
-    quotaRows: row.quota_rows as number,
-    usedRows: row.used_rows as number,
-    maxTables: row.max_tables as number,
-    createdAt: row.created_at as number,
-    updatedAt: row.updated_at as number,
-  });
-
-  await next();
-}
-
-export async function adminAuthMiddleware(c: Context<AppEnv>, next: Next) {
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) throw ApiError.unauthorized('Missing admin key');
-
-  const key = authHeader.slice(7);
-  if (!c.env.ADMIN_API_KEY) throw ApiError.unauthorized('Admin endpoint not configured');
-
-  // Constant-time comparison to prevent timing attacks
-  const encoder = new TextEncoder();
-  const a = encoder.encode(key);
-  const b = encoder.encode(c.env.ADMIN_API_KEY);
-  if (a.byteLength !== b.byteLength) throw ApiError.unauthorized('Invalid admin key');
-
-  const isEqual = crypto.subtle.timingSafeEqual(a, b);
-  if (!isEqual) throw ApiError.unauthorized('Invalid admin key');
-
-  await next();
-}
-
+// Re-export hashApiKey for use in tenant service
 export { hashApiKey };
