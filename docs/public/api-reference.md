@@ -16,10 +16,21 @@ All endpoints (except admin and health) require tenant authentication via Bearer
 Include your API key in the `Authorization` header:
 
 ```
-Authorization: Bearer dbr_live_your_api_key_here
+Authorization: Bearer sk_live_your_api_key_here
 ```
 
 Admin endpoints use a separate admin API key.
+
+### Optional: Workspace Scoping
+
+To scope requests to a specific workspace, include the `X-Workspace-Id` header alongside your API key:
+
+```
+Authorization: Bearer sk_live_your_api_key_here
+X-Workspace-Id: ws_your_workspace_id
+```
+
+When this header is present, all table, row, column, and view operations are filtered to that workspace.
 
 ## Error Format
 
@@ -624,6 +635,132 @@ PUT /api/v1/rows/:rowId/files/:columnId/reorder
 
 ---
 
+## Workspaces
+
+Workspaces partition data within a tenant. All workspace endpoints require a tenant API key.
+
+### List Workspaces
+
+```
+GET /api/v1/workspaces
+```
+
+**Auth:** Tenant API key (Bearer token)
+
+**Example Response (200):**
+
+```json
+[
+  {
+    "id": "ws_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "tenantId": "tenant-uuid",
+    "name": "Production",
+    "slug": "production",
+    "quotaRows": null,
+    "usedRows": 0,
+    "metadata": null,
+    "createdAt": "2026-02-20T10:00:00.000Z",
+    "updatedAt": "2026-02-20T10:00:00.000Z"
+  }
+]
+```
+
+### Create Workspace
+
+```
+POST /api/v1/workspaces
+```
+
+**Auth:** Tenant API key (Bearer token)
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Workspace name (1--255 chars) |
+| `slug` | string | Yes | URL-safe unique identifier (must be unique within tenant) |
+| `quotaRows` | number | No | Row limit override (null = inherits tenant default) |
+| `metadata` | object | No | Arbitrary JSON metadata |
+
+**Example Request:**
+
+```json
+{
+  "name": "Production",
+  "slug": "production"
+}
+```
+
+**Example Response (201):**
+
+```json
+{
+  "id": "ws_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "tenantId": "tenant-uuid",
+  "name": "Production",
+  "slug": "production",
+  "quotaRows": null,
+  "usedRows": 0,
+  "metadata": null,
+  "createdAt": "2026-02-20T10:00:00.000Z",
+  "updatedAt": "2026-02-20T10:00:00.000Z"
+}
+```
+
+**Error Responses:**
+- `409` -- A workspace with the given slug already exists for this tenant
+
+### Get Workspace
+
+```
+GET /api/v1/workspaces/:id
+```
+
+**Auth:** Tenant API key (Bearer token)
+
+**Error Responses:**
+- `404` -- Workspace not found or belongs to another tenant
+
+### Update Workspace
+
+```
+PATCH /api/v1/workspaces/:id
+```
+
+**Auth:** Tenant API key (Bearer token)
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New workspace name |
+| `quotaRows` | number | No | New row limit |
+| `metadata` | object | No | New metadata (replaces existing) |
+
+**Error Responses:**
+- `404` -- Workspace not found or belongs to another tenant
+
+### Delete Workspace
+
+```
+DELETE /api/v1/workspaces/:id
+```
+
+**Auth:** Tenant API key (Bearer token)
+
+Deletes the workspace and all tables, rows, columns, and views within it. This action is irreversible.
+
+**Example Response (200):**
+
+```json
+{ "success": true }
+```
+
+**Error Responses:**
+- `404` -- Workspace not found or belongs to another tenant
+
+---
+
 ## Tenant
 
 ### Get Tenant Info
@@ -691,7 +828,7 @@ POST /api/v1/admin/tenants
     "maxTables": 200,
     "createdAt": "2026-02-20T10:00:00.000Z"
   },
-  "apiKey": "dbr_live_abc123def456..."
+  "apiKey": "sk_live_abc123def456..."
 }
 ```
 

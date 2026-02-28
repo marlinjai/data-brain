@@ -11,7 +11,7 @@ Get up and running with Data Brain in minutes.
 ## Prerequisites
 
 - Node.js 18+
-- A Data Brain API key (`dbr_live_...` or `dbr_test_...`)
+- A Data Brain API key (`sk_live_...` or `sk_test_...`)
 
 ## Install the SDK
 
@@ -25,7 +25,7 @@ npm install @marlinjai/data-brain-sdk
 import { DataBrain } from '@marlinjai/data-brain-sdk';
 
 const db = new DataBrain({
-  apiKey: 'dbr_live_your_api_key_here',
+  apiKey: 'sk_live_your_api_key_here',
 });
 ```
 
@@ -88,10 +88,10 @@ console.log(`Found ${total} rows`);
 All API requests require a Bearer token in the `Authorization` header:
 
 ```
-Authorization: Bearer dbr_live_...
+Authorization: Bearer sk_live_...
 ```
 
-API keys use the `dbr_live_` prefix for production and `dbr_test_` for testing environments. Keys are hashed with SHA-256 before storage -- the plaintext key is only returned once at creation time.
+API keys use the `sk_live_` prefix for production and `sk_test_` for testing environments. Keys are hashed with SHA-256 before storage -- the plaintext key is only returned once at creation time.
 
 ### Tenant Isolation
 
@@ -112,6 +112,48 @@ Check your usage at any time:
 ```typescript
 const info = await db.getTenantInfo();
 console.log(`${info.usedRows} / ${info.quotaRows} rows used`);
+```
+
+## Working with Workspaces
+
+Workspaces let you partition data within your tenant -- useful for separating data by project, customer, or environment.
+
+### Create a Workspace
+
+```typescript
+const workspace = await db.createWorkspace({
+  name: 'Production',
+  slug: 'production',
+});
+console.log(workspace.id); // "ws_..."
+```
+
+### Scope a Client to a Workspace
+
+Use `withWorkspace()` to return a new client instance that automatically sends `X-Workspace-Id` on every request:
+
+```typescript
+const ws = db.withWorkspace(workspace.id);
+
+// All subsequent calls are scoped to this workspace
+const table = await ws.createTable({ name: 'Contacts' });
+const { rows } = await ws.getRows(table.id);
+```
+
+### List and Manage Workspaces
+
+```typescript
+// List all workspaces for your tenant
+const workspaces = await db.listWorkspaces();
+
+// Fetch a single workspace
+const ws = await db.getWorkspace(workspace.id);
+
+// Update a workspace
+await db.updateWorkspace(workspace.id, { name: 'Production v2' });
+
+// Delete a workspace (and all its tables and rows)
+await db.deleteWorkspace(workspace.id);
 ```
 
 ## Next Steps
