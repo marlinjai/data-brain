@@ -1,9 +1,14 @@
 import type { Context } from 'hono';
-import { D1Adapter } from '@marlinjai/data-table-adapter-d1';
+import type { DatabaseAdapter } from '@marlinjai/data-table-core';
 import type { AppEnv } from './env';
+import type { TenantDatabaseAdapter } from './tenant-adapter';
 
-export function getAdapter(c: Context<AppEnv>): D1Adapter {
-  return new D1Adapter(c.env.DB);
+export function getAdapter(c: Context<AppEnv>): DatabaseAdapter {
+  return c.get('adapter');
+}
+
+export function getTenantDb(c: Context<AppEnv>): TenantDatabaseAdapter {
+  return c.get('tenantDb');
 }
 
 export function getWorkspaceId(c: Context<AppEnv>): string {

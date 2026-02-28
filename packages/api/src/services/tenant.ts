@@ -1,41 +1,4 @@
-import { DEFAULT_QUOTA_ROWS, DEFAULT_MAX_TABLES } from '@data-brain/shared';
 import type { Tenant, TenantInfo } from '@data-brain/shared';
-import { generateApiKey, hashApiKey } from '@marlinjai/brain-core';
-
-export async function createTenant(
-  db: D1Database,
-  input: { name: string; quotaRows?: number; maxTables?: number }
-): Promise<{ tenant: TenantInfo; apiKey: string }> {
-  const id = crypto.randomUUID();
-  const apiKey = generateApiKey();
-  const keyHash = await hashApiKey(apiKey);
-  const now = Date.now();
-
-  await db.prepare(
-    `INSERT INTO tenants (id, name, api_key_hash, quota_rows, max_tables, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
-    id,
-    input.name,
-    keyHash,
-    input.quotaRows ?? DEFAULT_QUOTA_ROWS,
-    input.maxTables ?? DEFAULT_MAX_TABLES,
-    now,
-    now,
-  ).run();
-
-  return {
-    tenant: {
-      id,
-      name: input.name,
-      quotaRows: input.quotaRows ?? DEFAULT_QUOTA_ROWS,
-      usedRows: 0,
-      maxTables: input.maxTables ?? DEFAULT_MAX_TABLES,
-      createdAt: new Date(now).toISOString(),
-    },
-    apiKey,
-  };
-}
 
 export function toTenantInfo(tenant: Tenant): TenantInfo {
   return {

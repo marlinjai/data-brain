@@ -2,26 +2,31 @@
   "name": "@data-brain/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Data Brain API — Cloudflare Workers",
+  "description": "Data Brain API — Cloudflare Workers + Node.js",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:staging": "wrangler deploy --env staging",
     "typecheck": "tsc --noEmit",
+    "start:node": "tsx src/node.ts",
     "db:migrate": "wrangler d1 migrations apply data-brain-db",
     "db:migrate:local": "wrangler d1 migrations apply data-brain-db --local"
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.0",
     "@marlinjai/brain-core": "file:../../../brain-core",
     "@data-brain/shared": "workspace:*",
     "@marlinjai/data-table-core": "^0.1.0",
     "@marlinjai/data-table-adapter-d1": "^0.1.0",
     "hono": "^4.0.0",
+    "postgres": "^3.4.5",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",
+    "@types/node": "^20.11.0",
+    "tsx": "^4.19.0",
     "wrangler": "^3.24.0",
     "typescript": "^5.3.3"
   }
