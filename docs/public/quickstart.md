@@ -1,7 +1,7 @@
 ---
 title: Quick Start
 order: 1
-icon: rocket
+icon: "🚀"
 ---
 
 # Quick Start

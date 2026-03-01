@@ -2,7 +2,7 @@
 title: Data Brain
 description: Structured data as a service
 order: 0
-icon: database
+icon: "🗄️"
 ---
 
 # Data Brain

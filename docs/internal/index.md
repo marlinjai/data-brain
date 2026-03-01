@@ -2,7 +2,7 @@
 title: Internal Documentation
 description: Planning documents and architecture decisions
 order: 0
-icon: lock
+icon: "🔒"
 ---
 
 # Internal Documentation

@@ -2,7 +2,7 @@
 title: Architecture
 description: System design and data flow
 order: 4
-icon: layers
+icon: "🏗️"
 ---
 
 # Architecture
