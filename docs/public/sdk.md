@@ -12,7 +12,7 @@ The Data Brain TypeScript SDK provides a type-safe client for managing tables, c
 ## Installation
 
 ```bash
-npm install @marlinjai/data-brain-sdk
+pnpm add @marlinjai/data-brain-sdk
 ```
 
 The SDK ships ESM and CommonJS builds with full TypeScript type definitions.

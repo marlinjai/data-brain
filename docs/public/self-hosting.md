@@ -19,8 +19,8 @@ The API will be available at `http://localhost:3001`.
 Or use the all-in-one repo to run both Brain APIs together:
 
 ```bash
-git clone https://github.com/marlinjai/lumitra-self-host
-cd lumitra-self-host
+git clone https://github.com/marlinjai/lumitra-self-hosted
+cd lumitra-self-hosted
 docker compose up
 ```
 
@@ -38,7 +38,7 @@ Save the `apiKey` from the response — you'll use it with the SDK.
 ## Use the SDK
 
 ```bash
-npm install @marlinjai/data-brain-sdk
+pnpm add @marlinjai/data-brain-sdk
 ```
 
 ```typescript

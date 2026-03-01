@@ -16,7 +16,7 @@ Get up and running with Data Brain in minutes.
 ## Install the SDK
 
 ```bash
-npm install @marlinjai/data-brain-sdk
+pnpm add @marlinjai/data-brain-sdk
 ```
 
 ## Create a Client
