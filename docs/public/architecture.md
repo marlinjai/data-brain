@@ -24,24 +24,32 @@ Client App
     | HTTP (JSON)
     v
 +-------------------------+
-|  Data Brain API         |   Cloudflare Worker (Hono)
+|  Data Brain API         |   Cloudflare Worker / Node.js (Hono)
 |  - Auth middleware       |
 |  - Ownership checks     |
 |  - Zod validation       |
 |  - Tenant isolation     |
+|  - Adapter resolution   |
 +-------------------------+
     |
     v
 +-------------------------+
-|  D1Adapter              |   @marlinjai/data-table-adapter-d1
-|  - 43 adapter methods   |
-|  - SQL generation       |
+|  DatabaseAdapter        |   Interface (43 methods)
+|  (resolved per-tenant)  |
 +-------------------------+
-    |
-    v
-+-------------------------+
-|  Cloudflare D1          |   SQLite at the edge
-+-------------------------+
+    |                  |
+    v                  v
++----------+   +----------------+
+| D1Adapter|   | PostgresAdapter|
+| (default)|   | (self-host /   |
+| Edge D1  |   |  BYOS)         |
++----------+   +----------------+
+    |                  |
+    v                  v
++----------+   +----------------+
+|Cloudflare|   | Neon/Supabase/ |
+|   D1     |   | RDS/Railway    |
++----------+   +----------------+
 ```
 
 ## Three-Layer Architecture
@@ -209,3 +217,80 @@ Cloudflare Worker
     +-- ADMIN_API_KEY: Secret
     +-- ENVIRONMENT: Variable
 ```
+
+### Self-Hosted (Docker)
+
+Run the same API with PostgreSQL via `docker-compose up`:
+
+```
+docker-compose.yml
++-- api        (Node.js, port 3001)
++-- postgres   (PostgreSQL 16)
+```
+
+The `PostgresDatabaseAdapter` implements the same `DatabaseAdapter` interface as the D1Adapter, so the API routes are identical regardless of backend.
+
+## BYOS -- Bring Your Own Database
+
+Enterprise customers on the **Cloud Team** tier can connect their own managed Postgres database while still using the Lumitra Cloud-hosted Data Brain API. This satisfies data residency and compliance requirements -- structured data never touches Lumitra infrastructure.
+
+### How It Works
+
+```
+Client App → Data Brain Cloud API → Auth middleware → Resolve tenant
+                                                          |
+                                          ┌───────────────┴───────────────┐
+                                          |                               |
+                                    tenant.databaseConfig            No custom config
+                                    is set                           (default)
+                                          |                               |
+                                    Decrypt connection string       Use managed D1
+                                          |
+                                    PostgresDatabaseAdapter
+                                          |
+                                    Customer's Postgres
+                                    (Neon, Supabase, RDS, Railway)
+```
+
+### Per-Tenant Database Adapter Resolution
+
+The adapter resolution pattern checks each tenant's configuration at request time:
+
+```typescript
+async function getDatabaseAdapter(tenant: Tenant): Promise<TenantDatabaseAdapter> {
+  if (tenant.databaseConfig) {
+    // BYOS tenant -- decrypt their connection string, instantiate Postgres adapter
+    const config = await decrypt(tenant.databaseConfig, env.ENCRYPTION_KEY);
+    return new PostgresDatabaseAdapter({
+      connectionString: config.connectionString,
+      maxConnections: config.maxConnections ?? 5,
+    });
+  }
+  // Default: use managed D1
+  return new D1DatabaseAdapter(env.DB);
+}
+```
+
+### Why This Works
+
+- **The PostgresAdapter already exists** -- It is the same adapter used in self-hosted mode. BYOS reuses it with customer-provided connection strings instead of local environment variables.
+- **Same interface, different backend** -- Both `D1DatabaseAdapter` and `PostgresDatabaseAdapter` implement the full `DatabaseAdapter` interface (43 methods). The API routes are backend-agnostic.
+- **Tenant management stays on D1** -- The `tenants` table (API keys, quotas, BYOS config) remains on Lumitra's managed D1. Only the `dt_*` data tables live on the customer's Postgres.
+- **Automatic migrations** -- On first connection, Data Brain runs its migration set on the customer's database to create the required `dt_*` tables.
+
+### Supported Postgres Providers
+
+| Provider | Notes |
+|----------|-------|
+| **Neon** | Serverless Postgres, built-in connection pooling, recommended for BYOS |
+| **Supabase** | Managed Postgres with generous free tier |
+| **AWS RDS** | Standard managed Postgres, good for AWS-centric enterprises |
+| **Railway** | Simple managed Postgres, easy setup |
+| **Any Postgres-compatible** | Any database accepting standard `postgresql://` connection strings |
+
+### Credential Security
+
+- Connection strings are encrypted at rest using Cloudflare Workers `crypto.subtle` with a KMS-managed key
+- Credentials are decrypted only at request time and never logged
+- A connectivity test (`SELECT 1`) runs before credentials are saved
+- Customers can rotate connection strings via the Lumitra Cloud dashboard
