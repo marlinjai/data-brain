@@ -177,7 +177,7 @@ Authorization: Bearer sk_live_...
 ### Installation
 
 ```bash
-npm install @marlinjai/data-brain-sdk
+pnpm add @marlinjai/data-brain-sdk
 ```
 
 ### Create a Client
@@ -318,7 +318,7 @@ await ws.deleteView(view.id);
 Use Data Brain as a drop-in `DatabaseAdapter` for [`@marlinjai/data-table-react`](https://github.com/marlinjai/marlinjai-data-table):
 
 ```bash
-npm install @marlinjai/data-table-adapter-data-brain
+pnpm add @marlinjai/data-table-adapter-data-brain
 ```
 
 ```typescript
@@ -338,7 +338,7 @@ const adapter = new DataBrainAdapter({
 
 - Node.js >= 18
 - pnpm
-- Wrangler CLI (`npm install -g wrangler`)
+- Wrangler CLI (`pnpm add -g wrangler`)
 - Cloudflare account with Workers and D1 enabled
 
 ### Infrastructure (D1 Binding)

@@ -8,6 +8,7 @@ export default defineConfig({
     status: 'active',
     icon: '🗄️',
     tags: ['api', 'database'],
+    group: 'Lumitra Infrastructure',
   },
   sections: [
     { label: 'Documentation', docsDir: './docs/public' },
