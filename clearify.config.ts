@@ -4,6 +4,8 @@ export default defineConfig({
   name: 'Data Brain',
   siteUrl: 'https://data-brain-docs.lumitra.co',
   hubProject: {
+    hubUrl: 'https://docs.lumitra.co',
+    hubName: 'ERP Suite',
     description: 'Structured data API with multi-tenant workspaces',
     status: 'active',
     icon: '🗄️',

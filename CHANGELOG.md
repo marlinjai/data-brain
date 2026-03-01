@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Self-hosting support with PostgreSQL adapter and Docker configuration
+
+### Changed
+- Migrated shared infrastructure (auth, crypto, errors, types) to `@marlinjai/brain-core`
+
 ## [0.2.0] - 2026-02-20
 
 ### Added
@@ -16,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Workspace delete cascades to all tables in that workspace
   - SDK: `withWorkspace()` for scoped client instances
   - SDK: `createWorkspace()`, `listWorkspaces()`, `getWorkspace()`, `updateWorkspace()`, `deleteWorkspace()`
+
+### Fixed
+- Admin auth routes reordered before tenant-auth routes to prevent auth interception
 
 ## [0.1.0] - 2026-02-20
 
@@ -36,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic retry with exponential backoff
   - Typed error hierarchy (NotFoundError, ValidationError, etc.)
   - Dual CJS/ESM build
+
+### Fixed
+- Add missing `dt_views` table to data-table D1 migration
 
 ### Security
 
