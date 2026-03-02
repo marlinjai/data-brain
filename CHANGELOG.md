@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Migrated shared infrastructure (auth, crypto, errors, types) to `@marlinjai/brain-core`
+- Docs hub backlink now points to Lumitra Cloud (`docs.cloud.lumitra.co`) instead of ERP Suite root
 
 ## [0.2.0] - 2026-02-20
 
