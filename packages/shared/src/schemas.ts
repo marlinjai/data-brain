@@ -158,3 +158,14 @@ export const createTenantSchema = z.object({
   quotaRows: z.number().int().positive().optional(),
   maxTables: z.number().int().positive().optional(),
 });
+
+export const updateTenantSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  quotaRows: z.number().int().positive().optional(),
+  maxTables: z.number().int().positive().optional(),
+});
+
+export const listTenantsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  cursor: z.string().optional(),
+});

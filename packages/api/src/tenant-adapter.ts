@@ -1,4 +1,4 @@
-import type { Tenant, TenantInfo } from '@data-brain/shared';
+import type { Tenant, TenantInfo, UpdateTenantInput } from '@data-brain/shared';
 
 /**
  * Input for creating a new tenant
@@ -101,4 +101,46 @@ export interface TenantDatabaseAdapter {
    * Delete a workspace and all its data (tables, rows, etc.).
    */
   deleteWorkspace(workspaceId: string, tenantId: string): Promise<boolean>;
+
+  /**
+   * Atomically increment used_rows on both tenant and workspace.
+   */
+  incrementUsedRows(tenantId: string, workspaceId: string, count: number): Promise<void>;
+
+  /**
+   * Atomically decrement used_rows on both tenant and workspace (floor at 0).
+   */
+  decrementUsedRows(tenantId: string, workspaceId: string, count: number): Promise<void>;
+
+  /**
+   * Count all tables across all workspaces for a tenant.
+   */
+  countTenantTables(tenantId: string): Promise<number>;
+
+  // ─── Admin Operations ───────────────────────────────────────────────────
+
+  /**
+   * List tenants with cursor-based pagination.
+   */
+  listTenants(opts?: { limit?: number; cursor?: string }): Promise<{ tenants: Tenant[]; nextCursor: string | null; total: number }>;
+
+  /**
+   * Get a tenant by ID.
+   */
+  getTenantById(id: string): Promise<Tenant | null>;
+
+  /**
+   * Update a tenant's mutable fields (name, quotaRows, maxTables).
+   */
+  updateTenant(id: string, updates: UpdateTenantInput): Promise<Tenant | null>;
+
+  /**
+   * Delete a tenant and ALL associated data (workspaces, tables, rows, etc.).
+   */
+  deleteTenant(id: string): Promise<boolean>;
+
+  /**
+   * Regenerate API key for a tenant. Returns the new raw API key.
+   */
+  regenerateApiKey(id: string): Promise<string | null>;
 }

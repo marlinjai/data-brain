@@ -2,7 +2,7 @@ import postgres from 'postgres';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Tenant } from '@data-brain/shared';
+import type { Tenant, UpdateTenantInput } from '@data-brain/shared';
 import { DEFAULT_QUOTA_ROWS, DEFAULT_MAX_TABLES } from '@data-brain/shared';
 import { generateApiKey, hashApiKey } from '@marlinjai/brain-core';
 import type {
@@ -50,17 +50,7 @@ export class PostgresTenantAdapter implements TenantDatabaseAdapter {
 
     const row = rows[0];
     if (!row) return null;
-
-    return {
-      id: row.id as string,
-      name: row.name as string,
-      apiKeyHash: row.api_key_hash as string,
-      quotaRows: Number(row.quota_rows),
-      usedRows: Number(row.used_rows),
-      maxTables: Number(row.max_tables),
-      createdAt: Number(row.created_at),
-      updatedAt: Number(row.updated_at),
-    };
+    return this.mapTenantRow(row);
   }
 
   async verifyWorkspaceAccess(workspaceId: string, tenantId: string): Promise<boolean> {
@@ -172,6 +162,128 @@ export class PostgresTenantAdapter implements TenantDatabaseAdapter {
     await this.sql`DELETE FROM workspaces WHERE id = ${workspaceId} AND tenant_id = ${tenantId}`;
 
     return true;
+  }
+
+  async incrementUsedRows(tenantId: string, workspaceId: string, count: number): Promise<void> {
+    await this.sql`UPDATE tenants SET used_rows = used_rows + ${count}, updated_at = ${Date.now()} WHERE id = ${tenantId}`;
+    await this.sql`UPDATE workspaces SET used_rows = used_rows + ${count}, updated_at = ${new Date().toISOString()} WHERE id = ${workspaceId} AND tenant_id = ${tenantId}`;
+  }
+
+  async decrementUsedRows(tenantId: string, workspaceId: string, count: number): Promise<void> {
+    await this.sql`UPDATE tenants SET used_rows = GREATEST(0, used_rows - ${count}), updated_at = ${Date.now()} WHERE id = ${tenantId}`;
+    await this.sql`UPDATE workspaces SET used_rows = GREATEST(0, used_rows - ${count}), updated_at = ${new Date().toISOString()} WHERE id = ${workspaceId} AND tenant_id = ${tenantId}`;
+  }
+
+  async countTenantTables(tenantId: string): Promise<number> {
+    const rows = await this.sql`
+      SELECT COUNT(*)::int as count FROM dt_tables
+      WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${tenantId})
+        OR workspace_id = ${tenantId}
+    `;
+    return rows[0]?.count ?? 0;
+  }
+
+  // ─── Admin Operations ───────────────────────────────────────────────────
+
+  async listTenants(opts?: { limit?: number; cursor?: string }): Promise<{ tenants: Tenant[]; nextCursor: string | null; total: number }> {
+    const limit = opts?.limit ?? 50;
+
+    const countResult = await this.sql`SELECT COUNT(*)::int as count FROM tenants`;
+    const total = countResult[0]?.count ?? 0;
+
+    let rows: postgres.Row[];
+    if (opts?.cursor) {
+      rows = await this.sql`
+        SELECT id, name, api_key_hash, quota_rows, used_rows, max_tables, created_at, updated_at
+        FROM tenants WHERE created_at > ${Number(opts.cursor)} ORDER BY created_at ASC LIMIT ${limit + 1}
+      `;
+    } else {
+      rows = await this.sql`
+        SELECT id, name, api_key_hash, quota_rows, used_rows, max_tables, created_at, updated_at
+        FROM tenants ORDER BY created_at ASC LIMIT ${limit + 1}
+      `;
+    }
+
+    const hasMore = rows.length > limit;
+    const tenants = (hasMore ? rows.slice(0, limit) : rows).map((row) => this.mapTenantRow(row));
+    const nextCursor = hasMore && tenants.length > 0
+      ? String(tenants[tenants.length - 1]!.createdAt)
+      : null;
+
+    return { tenants, nextCursor, total };
+  }
+
+  async getTenantById(id: string): Promise<Tenant | null> {
+    const rows = await this.sql`
+      SELECT id, name, api_key_hash, quota_rows, used_rows, max_tables, created_at, updated_at
+      FROM tenants WHERE id = ${id}
+    `;
+    const row = rows[0];
+    return row ? this.mapTenantRow(row) : null;
+  }
+
+  async updateTenant(id: string, updates: UpdateTenantInput): Promise<Tenant | null> {
+    const existing = await this.sql`SELECT id FROM tenants WHERE id = ${id}`;
+    if (existing.length === 0) return null;
+
+    const sets: postgres.PendingQuery<postgres.Row[]>[] = [];
+
+    if (updates.name !== undefined) sets.push(this.sql`name = ${updates.name}`);
+    if (updates.quotaRows !== undefined) sets.push(this.sql`quota_rows = ${updates.quotaRows}`);
+    if (updates.maxTables !== undefined) sets.push(this.sql`max_tables = ${updates.maxTables}`);
+
+    if (sets.length === 0) return this.getTenantById(id);
+
+    sets.push(this.sql`updated_at = ${Date.now()}`);
+    const setClause = sets.reduce((acc, s) => this.sql`${acc}, ${s}`);
+    await this.sql`UPDATE tenants SET ${setClause} WHERE id = ${id}`;
+
+    return this.getTenantById(id);
+  }
+
+  async deleteTenant(id: string): Promise<boolean> {
+    const existing = await this.sql`SELECT id FROM tenants WHERE id = ${id}`;
+    if (existing.length === 0) return false;
+
+    // Cascading delete: files → relations → rows → select_options → columns → views → tables → workspaces → tenant
+    await this.sql`DELETE FROM dt_files WHERE row_id IN (SELECT id FROM dt_rows WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id}))`;
+    await this.sql`DELETE FROM dt_relations WHERE source_row_id IN (SELECT id FROM dt_rows WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id})) OR target_row_id IN (SELECT id FROM dt_rows WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id}))`;
+    await this.sql`DELETE FROM dt_rows WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id})`;
+    await this.sql`DELETE FROM dt_select_options WHERE column_id IN (SELECT id FROM dt_columns WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id}))`;
+    await this.sql`DELETE FROM dt_columns WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id})`;
+    await this.sql`DELETE FROM dt_views WHERE table_id IN (SELECT id FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id})`;
+    await this.sql`DELETE FROM dt_tables WHERE workspace_id IN (SELECT id FROM workspaces WHERE tenant_id = ${id}) OR workspace_id = ${id}`;
+    await this.sql`DELETE FROM workspaces WHERE tenant_id = ${id}`;
+    await this.sql`DELETE FROM tenants WHERE id = ${id}`;
+
+    return true;
+  }
+
+  async regenerateApiKey(id: string): Promise<string | null> {
+    const existing = await this.sql`SELECT id FROM tenants WHERE id = ${id}`;
+    if (existing.length === 0) return null;
+
+    const apiKey = generateApiKey();
+    const keyHash = await hashApiKey(apiKey);
+
+    await this.sql`UPDATE tenants SET api_key_hash = ${keyHash}, updated_at = ${Date.now()} WHERE id = ${id}`;
+
+    return apiKey;
+  }
+
+  // ─── Mappers ────────────────────────────────────────────────────────────
+
+  private mapTenantRow(row: postgres.Row): Tenant {
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      apiKeyHash: row.api_key_hash as string,
+      quotaRows: Number(row.quota_rows),
+      usedRows: Number(row.used_rows),
+      maxTables: Number(row.max_tables),
+      createdAt: Number(row.created_at),
+      updatedAt: Number(row.updated_at),
+    };
   }
 
   private mapWorkspaceRow(row: postgres.Row): WorkspaceRow {

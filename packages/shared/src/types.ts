@@ -50,6 +50,45 @@ export interface WorkspaceInfo {
 }
 
 /**
+ * Input for updating a tenant via admin API
+ */
+export interface UpdateTenantInput {
+  name?: string;
+  quotaRows?: number;
+  maxTables?: number;
+}
+
+/**
+ * Result of listing tenants
+ */
+export interface ListTenantsResult {
+  tenants: TenantInfo[];
+  nextCursor: string | null;
+  total: number;
+}
+
+/**
+ * Admin-level tenant detail with usage breakdown
+ */
+export interface AdminTenantDetail extends TenantInfo {
+  quota: {
+    quotaRows: number;
+    usedRows: number;
+    availableRows: number;
+    usagePercent: number;
+  };
+}
+
+/**
+ * Result of regenerating a tenant API key
+ */
+export interface RegenerateKeyResult {
+  tenantId: string;
+  apiKey: string;
+  message: string;
+}
+
+/**
  * Batch operation — one unit in a POST /rpc/batch request
  */
 export interface BatchOperation {

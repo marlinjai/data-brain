@@ -11,14 +11,15 @@
     "build": "pnpm -r --if-present run build",
     "build:sdk": "pnpm --filter @marlinjai/data-brain-sdk build",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "pnpm -r --if-present run test",
+    "test": "vitest run",
     "clean": "rm -rf packages/*/dist packages/*/.wrangler",
     "publish:sdk": "pnpm --filter @marlinjai/data-brain-sdk build && pnpm --filter @marlinjai/data-brain-sdk publish --access public"
   },
   "devDependencies": {
     "@marlinjai/clearify": "^1.9.0",
     "@types/node": "^20.11.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth';
 import { ApiError } from '../middleware/error-handler';
 import { getAdapter } from '../adapter';
 import { verifyTableOwnership, verifyRowOwnership } from '../middleware/ownership';
+import { checkRowQuota, trackRowsCreated, trackRowsDeleted } from '../middleware/quota';
 import { createRowSchema, updateRowCellsSchema, queryOptionsSchema, bulkRowIdsSchema } from '@data-brain/shared';
 import type { QueryOptions } from '@marlinjai/data-table-core';
 
@@ -41,7 +42,9 @@ rowRoutes.post('/tables/:tableId/rows', async (c) => {
   const body = createRowSchema.parse(await c.req.json());
   const adapter = getAdapter(c);
   await verifyTableOwnership(c, adapter, c.req.param('tableId'));
+  await checkRowQuota(c);
   const row = await adapter.createRow({ ...body, tableId: c.req.param('tableId') });
+  await trackRowsCreated(c);
   return c.json(row, 201);
 });
 
@@ -66,6 +69,7 @@ rowRoutes.delete('/rows/:rowId', async (c) => {
   const adapter = getAdapter(c);
   await verifyRowOwnership(c, adapter, c.req.param('rowId'));
   await adapter.deleteRow(c.req.param('rowId'));
+  await trackRowsDeleted(c);
   return c.json({ success: true });
 });
 
@@ -93,8 +97,10 @@ rowRoutes.post('/tables/:tableId/rows/bulk', async (c) => {
   })).min(1).max(1000).parse(await c.req.json());
   const adapter = getAdapter(c);
   await verifyTableOwnership(c, adapter, c.req.param('tableId'));
+  await checkRowQuota(c, rawInputs.length);
   const fullInputs = rawInputs.map((input) => ({ tableId: c.req.param('tableId'), ...input }));
   const rows = await adapter.bulkCreateRows(fullInputs);
+  await trackRowsCreated(c, rows.length);
   return c.json(rows, 201);
 });
 
@@ -107,6 +113,7 @@ rowRoutes.delete('/rows/bulk', async (c) => {
     await verifyRowOwnership(c, adapter, rowId);
   }
   await adapter.bulkDeleteRows(rowIds);
+  await trackRowsDeleted(c, rowIds.length);
   return c.json({ success: true });
 });
 

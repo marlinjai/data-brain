@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { getAdapter, getWorkspaceId } from '../adapter';
 import { verifyTableOwnership } from '../middleware/ownership';
 import { verifyWorkspaceAccess } from '../middleware/workspace';
+import { checkTableQuota } from '../middleware/quota';
 import { createTableSchema, updateTableSchema } from '@data-brain/shared';
 
 const tableRoutes = new Hono<AppEnv>();
@@ -28,6 +29,7 @@ tableRoutes.post('/', async (c) => {
   if (c.req.header('X-Workspace-Id')) {
     await verifyWorkspaceAccess(c, workspaceId);
   }
+  await checkTableQuota(c);
   const table = await adapter.createTable({ ...body, workspaceId });
   return c.json(table, 201);
 });
