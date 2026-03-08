@@ -3,6 +3,11 @@ title: SDK Guide
 description: TypeScript SDK usage and reference
 order: 2
 icon: "📦"
+summary: Usage guide and reference for the Data Brain TypeScript SDK, providing a type-safe client for managing tables, columns, rows, views, relations, select options, and file references.
+category: documentation
+tags: [data-brain, sdk, typescript, client]
+projects: [data-brain]
+status: active
 ---
 
 # SDK Guide

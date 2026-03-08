@@ -2,6 +2,11 @@
 title: Architecture Decisions
 description: Key technical decisions and rationale
 order: 2
+summary: Record of key technical decisions made during Data Brain development, including database adapter choice, API design, SDK patterns, and multi-tenancy approach.
+category: decision
+tags: [data-brain, architecture-decisions, adr, technical]
+projects: [data-brain]
+status: active
 ---
 
 # Architecture Decisions

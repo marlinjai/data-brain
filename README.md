@@ -1,3 +1,12 @@
+---
+title: Data Brain
+summary: README for Data Brain, a structured data as a service platform wrapping the full DatabaseAdapter interface (43 methods) as REST endpoints on Cloudflare Workers with D1, multi-tenant workspaces, and a TypeScript SDK.
+category: documentation
+tags: [data-brain, api, cloudflare, multi-tenant, sdk]
+status: active
+date: 2026-02-20
+---
+
 # Data Brain
 
 Structured data as a service -- the database equivalent of [Storage Brain](https://github.com/marlinjai/storage-brain).

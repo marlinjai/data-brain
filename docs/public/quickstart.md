@@ -2,6 +2,11 @@
 title: Quick Start
 order: 1
 icon: "🚀"
+summary: Quick start guide for getting up and running with Data Brain in minutes, covering SDK installation, tenant setup, and basic table/row operations.
+category: documentation
+tags: [data-brain, quickstart, getting-started, sdk]
+projects: [data-brain]
+status: active
 ---
 
 # Quick Start

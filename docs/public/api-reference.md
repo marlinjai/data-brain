@@ -3,6 +3,11 @@ title: API Reference
 description: REST API endpoint documentation
 order: 3
 icon: "🌐"
+summary: REST API endpoint documentation for Data Brain, covering tables, columns, rows, views, select options, relations, and admin tenant management endpoints.
+category: documentation
+tags: [data-brain, api-reference, rest, endpoints]
+projects: [data-brain]
+status: active
 ---
 
 # API Reference

@@ -3,6 +3,11 @@ title: Architecture
 description: System design and data flow
 order: 4
 icon: "🏗️"
+summary: System design documentation for Data Brain covering the DatabaseAdapter HTTP interface, tenant isolation model, workspace hierarchy, and Cloudflare Workers deployment architecture.
+category: documentation
+tags: [data-brain, architecture, system-design, multi-tenant]
+projects: [data-brain]
+status: active
 ---
 
 # Architecture

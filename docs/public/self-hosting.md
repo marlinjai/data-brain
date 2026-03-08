@@ -1,6 +1,11 @@
 ---
 title: Self-Hosting Data Brain
 description: Run Data Brain on your own infrastructure with Docker
+summary: Guide for running Data Brain on your own infrastructure with Docker, covering quick start, tenant creation, and database configuration.
+category: documentation
+tags: [data-brain, self-hosting, docker, deployment]
+projects: [data-brain, self-hosted]
+status: active
 ---
 
 # Self-Hosting Data Brain

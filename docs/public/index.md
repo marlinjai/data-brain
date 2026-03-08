@@ -3,6 +3,11 @@ title: Data Brain
 description: Structured data as a service
 order: 0
 icon: "🗄️"
+summary: Landing page for Data Brain documentation, the structured data as a service platform wrapping the full DatabaseAdapter interface (43 methods) in an HTTP API backed by Cloudflare D1.
+category: documentation
+tags: [data-brain, index, structured-data, cloudflare-d1]
+projects: [data-brain]
+status: active
 ---
 
 # Data Brain

@@ -2,6 +2,11 @@
 title: Design Document
 description: Original design specification for Data Brain
 order: 1
+summary: Reference to the original Data Brain design specification maintained in the ERP suite root docs/plans directory.
+category: internal
+tags: [data-brain, design, specification, reference]
+projects: [data-brain]
+status: active
 ---
 
 # Design Document

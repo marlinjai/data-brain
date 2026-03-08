@@ -1,3 +1,12 @@
+---
+title: Data Brain Changelog
+summary: Version history for Data Brain structured data API service, covering releases from v0.1.0 through v0.2.0 including multi-tenant workspace management, 43 DatabaseAdapter methods over REST, SDK, and self-hosting support.
+category: changelog
+tags: [data-brain, changelog, releases, api]
+status: active
+date: 2026-02-20
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
