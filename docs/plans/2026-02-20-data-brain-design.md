@@ -4,21 +4,23 @@ summary: Design document for Data Brain, a reusable structured data API service 
 category: plan
 tags: [data-brain, design, api, cloudflare-workers, database-adapter]
 projects: [data-brain]
-status: active
+status: superseded
 date: 2026-02-20
 ---
 
 # Data Brain — Design Document
 
 **Date:** 2026-02-20
-**Status:** Approved
+**Status:** Superseded
+
+> **Note:** This design document is superseded by the current implementation. Key differences: the PostgreSQL adapter (listed as "out of scope V1") is now implemented, the route format has changed (e.g., `GET /api/v1/tables` with `X-Workspace-Id` header instead of `GET /api/v1/workspaces/:workspaceId/tables`), and admin endpoints have been expanded. See the [Architecture](/architecture) and [API Reference](/api-reference) docs for the current state.
 **Scope:** Reusable structured data API service for the ERP suite
 
 ---
 
 ## Problem Statement
 
-The data-table package has a `DatabaseAdapter` interface with 43 methods (tables, columns, rows, views, select options, relations, file references). Concrete adapters exist for D1 and in-memory, but they can only run server-side. Frontend apps (React) need to access these operations over HTTP. Currently there is no network layer between client-side data-table hooks and server-side database adapters.
+The data-table package has a `DatabaseAdapter` interface with 40 methods (tables, columns, rows, views, select options, relations, file references). Concrete adapters exist for D1 and in-memory, but they can only run server-side. Frontend apps (React) need to access these operations over HTTP. Currently there is no network layer between client-side data-table hooks and server-side database adapters.
 
 ## Solution
 
@@ -130,7 +132,7 @@ projects/data-table/
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Adapter interface | Reuse `DatabaseAdapter` from data-table-core | Single source of truth for the 43-method contract |
+| Adapter interface | Reuse `DatabaseAdapter` from data-table-core | Single source of truth for the 40-method contract |
 | SDK style | Simple CRUD methods matching adapter signatures | Must be compatible with data-table hooks without a shim layer |
 | Adapter location | `adapter-data-brain` in data-table monorepo | Same pattern as adapter-d1, adapter-memory |
 | Tenant isolation | API middleware only, not in DatabaseAdapter | Don't pollute the adapter interface with infrastructure concerns |
@@ -144,8 +146,11 @@ projects/data-table/
 ## API Routes
 
 ### Tables
+
+> **Superseded:** The `listTables` route was changed to `GET /api/v1/tables` with workspace scoping via the `X-Workspace-Id` header, not via the URL path.
+
 ```
-GET    /api/v1/workspaces/:workspaceId/tables   → listTables
+GET    /api/v1/workspaces/:workspaceId/tables   → listTables  (SUPERSEDED: now GET /api/v1/tables + X-Workspace-Id header)
 POST   /api/v1/tables                            → createTable
 GET    /api/v1/tables/:tableId                   → getTable
 PATCH  /api/v1/tables/:tableId                   → updateTable

@@ -28,7 +28,7 @@ The SDK ships ESM and CommonJS builds with full TypeScript type definitions.
 import { DataBrain } from '@marlinjai/data-brain-sdk';
 
 const db = new DataBrain({
-  apiKey: 'dbr_live_your_api_key_here',
+  apiKey: 'sk_live_your_api_key_here',
 });
 ```
 
@@ -36,10 +36,11 @@ const db = new DataBrain({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `apiKey` | string | (required) | Tenant API key (`dbr_live_...` or `dbr_test_...`) |
+| `apiKey` | string | (required) | Tenant API key (`sk_live_...` or `sk_test_...`) |
 | `baseUrl` | string | `https://data-brain-api.marlin-pohl.workers.dev` | API base URL |
 | `timeout` | number | `30000` | Request timeout in milliseconds |
 | `maxRetries` | number | `3` | Number of retry attempts for failed requests |
+| `workspaceId` | string | -- | Default workspace ID (sent as `X-Workspace-Id` header) |
 
 ## Tables
 
@@ -379,3 +380,59 @@ import type {
   BatchResult,
 } from '@marlinjai/data-brain-sdk';
 ```
+
+## Admin SDK
+
+The `DataBrainAdmin` client is exported separately from `@marlinjai/data-brain-sdk/admin` and provides tenant management operations. It requires the admin API key (not a tenant key).
+
+### Creating an Admin Client
+
+```typescript
+import { DataBrainAdmin } from '@marlinjai/data-brain-sdk/admin';
+
+const admin = new DataBrainAdmin({
+  apiKey: process.env.ADMIN_API_KEY!,
+  // baseUrl defaults to https://data-brain-api.marlin-pohl.workers.dev
+});
+```
+
+### Tenant Management
+
+```typescript
+// Create a new tenant (returns tenant info + raw API key)
+const { tenant, apiKey } = await admin.createTenant({
+  name: 'My Application',
+  quotaRows: 500000,
+  maxTables: 200,
+});
+// Store apiKey securely — it is only returned once
+
+// List all tenants (cursor pagination)
+const { tenants, cursor } = await admin.listTenants({ limit: 50 });
+
+// Get a tenant by ID
+const tenant = await admin.getTenant('tenant-uuid');
+
+// Update a tenant
+const updated = await admin.updateTenant('tenant-uuid', {
+  name: 'Renamed App',
+  quotaRows: 1000000,
+});
+
+// Delete a tenant (cascades to all workspaces and data)
+await admin.deleteTenant('tenant-uuid');
+
+// Regenerate a tenant's API key (invalidates the old key)
+const { apiKey: newKey } = await admin.regenerateKey('tenant-uuid');
+```
+
+### Admin Methods
+
+| Method | Parameters | Returns | Description |
+|--------|-----------|---------|-------------|
+| `createTenant` | `{ name, quotaRows?, maxTables? }` | `{ tenant, apiKey }` | Create a new tenant |
+| `listTenants` | `{ cursor?, limit? }` | `{ tenants, cursor }` | List tenants with pagination |
+| `getTenant` | `tenantId: string` | `Tenant` | Get tenant detail + usage |
+| `updateTenant` | `tenantId, { name?, quotaRows?, maxTables? }` | `Tenant` | Update tenant properties |
+| `deleteTenant` | `tenantId: string` | `void` | Delete tenant + cascade |
+| `regenerateKey` | `tenantId: string` | `{ apiKey }` | Regenerate API key |

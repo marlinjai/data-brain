@@ -15,7 +15,7 @@ The full design specification for Data Brain is maintained in the ERP suite root
 
 ## Summary
 
-Data Brain was designed as "structured data as a service" -- the database equivalent of Storage Brain. The core idea is to expose the full `DatabaseAdapter` interface (43 methods) over HTTP, allowing any client application to use a Notion-like database backend without managing its own database.
+Data Brain was designed as "structured data as a service" -- the database equivalent of Storage Brain. The core idea is to expose the full `DatabaseAdapter` interface (40 methods) over HTTP, allowing any client application to use a Notion-like database backend without managing its own database.
 
 ### Key Design Goals
 

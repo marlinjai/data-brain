@@ -1,9 +1,9 @@
 ---
 title: Architecture
-description: System design and data flow
+description: What Data Brain is, why it exists, and how it works
 order: 4
 icon: "🏗️"
-summary: System design documentation for Data Brain covering the DatabaseAdapter HTTP interface, tenant isolation model, workspace hierarchy, and Cloudflare Workers deployment architecture.
+summary: Data Brain is the multi-tenant backend for the Data Table component — it turns a local UI library into a cloud-hosted database service with API keys, workspace isolation, and quotas.
 category: documentation
 tags: [data-brain, architecture, system-design, multi-tenant]
 projects: [data-brain]
@@ -12,171 +12,201 @@ status: active
 
 # Architecture
 
-Data Brain is a structured data service that exposes the full `DatabaseAdapter` interface over HTTP. This page covers the system design, tenant isolation model, and deployment architecture.
+## What Is Data Brain?
+
+Data Brain is the **server-side backend for the Data Table component**. It takes the same `DatabaseAdapter` interface that Data Table uses locally (in-browser or on a single server) and exposes it as a **multi-tenant REST API** with authentication, workspace isolation, and quota management.
+
+## The Problem It Solves
+
+The [Data Table](/projects/data-table) project provides a Notion-like database UI as a React component library. It defines a `DatabaseAdapter` interface (CRUD for tables, columns, rows, views, select options, relations, and file references) and ships adapter implementations for different backends (D1, in-memory, etc.).
+
+**Without Data Brain**, every app that uses Data Table must:
+
+- Set up its own database and run its own adapter
+- Implement its own auth and access control
+- Handle multi-tenancy if serving multiple customers
+- Manage quotas, rate limits, and usage tracking
+
+**With Data Brain**, apps just install the SDK and call the API:
+
+```typescript
+import { DataBrain } from '@marlinjai/data-brain-sdk';
+
+const db = new DataBrain({ apiKey: 'sk_live_...' });
+const ws = db.withWorkspace('my-workspace');
+
+const table = await ws.createTable({ name: 'Contacts' });
+const rows = await ws.getRows(table.id, { limit: 50, filters: [...] });
+```
+
+Data Brain handles storage, auth, isolation, and quotas. The app only deals with business logic and UI.
+
+## How Data Table and Data Brain Relate
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Data Table (React UI)                              │
+│  - Renders tables, columns, rows, views             │
+│  - Handles user interactions (edit, sort, filter)   │
+│  - Talks to a DatabaseAdapter                       │
+└──────────────────┬──────────────────────────────────┘
+                   │ DatabaseAdapter interface
+                   │
+        ┌──────────┼──────────────┐
+        │          │              │
+   Local use    Self-hosted    Cloud use
+   (D1Adapter   (Postgres      (DataBrainAdapter
+    directly)    Adapter)       → HTTP → Data Brain API)
+                                         │
+                                    ┌────┴────┐
+                                    │ D1      │ Postgres
+                                    │ Adapter │ Adapter
+                                    └─────────┘
+```
+
+- **Local use:** App imports an adapter directly, no network involved.
+- **Self-hosted:** App runs its own Data Brain API instance with PostgreSQL.
+- **Cloud use:** App uses the hosted Data Brain API via SDK. Data Brain adds tenancy, auth, workspaces, and quotas on top of the same adapter.
 
 ## System Overview
 
 ```
 Client App
-    |
+    │
     v
-+-------------------------+
-|  DataBrain SDK          |   TypeScript (npm package)
-|  - Typed methods        |
-|  - Retry + backoff      |
-|  - Error hierarchy      |
-+-------------------------+
-    | HTTP (JSON)
+┌─────────────────────────┐
+│  DataBrain SDK           │  @marlinjai/data-brain-sdk (npm)
+│  - 47 typed methods      │
+│  - Retry + backoff       │
+│  - Typed error hierarchy │
+│  - Workspace scoping     │
+└─────────────────────────┘
+    │ HTTP (JSON)
     v
-+-------------------------+
-|  Data Brain API         |   Cloudflare Worker / Node.js (Hono)
-|  - Auth middleware       |
-|  - Ownership checks     |
-|  - Zod validation       |
-|  - Tenant isolation     |
-|  - Adapter resolution   |
-+-------------------------+
-    |
-    v
-+-------------------------+
-|  DatabaseAdapter        |   Interface (43 methods)
-|  (resolved per-tenant)  |
-+-------------------------+
-    |                  |
-    v                  v
-+----------+   +----------------+
-| D1Adapter|   | PostgresAdapter|
-| (default)|   | (self-host /   |
-| Edge D1  |   |  BYOS)         |
-+----------+   +----------------+
-    |                  |
-    v                  v
-+----------+   +----------------+
-|Cloudflare|   | Neon/Supabase/ |
-|   D1     |   | RDS/Railway    |
-+----------+   +----------------+
+┌─────────────────────────┐
+│  Data Brain API          │  Cloudflare Worker / Node.js (Hono)
+│  - API key auth          │
+│  - Tenant isolation      │
+│  - Workspace management  │
+│  - Ownership checks      │
+│  - Quota enforcement     │
+│  - Zod validation        │
+└─────────────────────────┘
+    │                          │
+    v                          v
+┌──────────────┐   ┌───────────────────┐
+│ D1 Adapter   │   │ Postgres Adapter  │
+│ (cloud,      │   │ (self-hosted)     │
+│  default)    │   │                   │
+└──────────────┘   └───────────────────┘
 ```
+
+## Core Concepts
+
+### Tenants
+
+A tenant is a customer with an API key. Each API request is authenticated by hashing the key with SHA-256 and looking it up in the tenants table. Tenants have:
+
+- **Row quota** (`quotaRows`) -- max total rows across all tables
+- **Table limit** (`maxTables`) -- max number of tables
+- **Usage counters** (`usedRows`) -- tracked atomically on every insert/delete
+
+### Workspaces
+
+Workspaces are logical containers within a tenant. A tenant can have multiple workspaces to separate data (e.g., "Production" vs. "Staging", or per-team). Workspaces:
+
+- Are selected via the `X-Workspace-Id` HTTP header (or `.withWorkspace()` in the SDK)
+- Can have their own row quotas independent of the tenant-level quota
+- Cascade on deletion -- deleting a workspace removes all its tables and data
+- Are scoped to the tenant -- one tenant cannot access another's workspaces
+
+### Data Model
+
+Within each workspace, the data model matches the Data Table component exactly:
+
+| Resource | Description |
+|----------|-------------|
+| **Tables** | Named containers for structured data, scoped to a workspace |
+| **Columns** | Typed fields on a table (text, number, select, date, relation, file, etc.) |
+| **Rows** | Records with JSON cell data keyed by column ID |
+| **Views** | Saved filter/sort/group configurations for a table |
+| **Select Options** | Predefined choices for select/multi-select columns |
+| **Relations** | Row-to-row links across tables |
+| **File References** | Metadata linking external files (from Storage Brain) to row cells |
 
 ## Three-Layer Architecture
 
-### Layer 1: SDK
+### Layer 1: SDK (`@marlinjai/data-brain-sdk`)
 
-The `@marlinjai/data-brain-sdk` package provides a typed TypeScript client that mirrors the full `DatabaseAdapter` interface. It handles authentication, serialization, retry logic with exponential backoff, and maps HTTP errors to a typed error hierarchy.
+The SDK provides two clients:
 
-### Layer 2: API
+- **`DataBrain`** -- Main client with 46 methods (all DatabaseAdapter data operations + workspace CRUD + tenant info). Handles auth, serialization, retry with exponential backoff, and maps HTTP errors to typed exceptions (`AuthenticationError`, `NotFoundError`, `ValidationError`, `QuotaExceededError`, etc.).
+- **`DataBrainAdmin`** -- Admin client for tenant provisioning, exported separately from `@marlinjai/data-brain-sdk/admin`.
 
-The Cloudflare Worker (Hono) serves as the authentication and authorization gateway. It:
+### Layer 2: API (`@data-brain/api`)
 
-- Validates API keys by hashing with SHA-256 and looking up the hash in D1
-- Verifies resource ownership on every request (tables, columns, rows all scoped to tenant)
-- Validates request bodies with Zod schemas from `@data-brain/shared`
-- Delegates to the D1Adapter for all database operations
+A Hono web app that runs on Cloudflare Workers (production) or Node.js (self-hosted). The request pipeline:
+
+1. **Security headers** + request ID + CORS
+2. **Auth middleware** -- extract Bearer token, hash it, look up tenant
+3. **Workspace resolution** -- read `X-Workspace-Id` header, verify it belongs to the tenant
+4. **Zod validation** -- validate request body against schemas from `@data-brain/shared`
+5. **Ownership checks** -- verify the requested table/column/row belongs to the tenant's workspace
+6. **Quota checks** -- before creating rows or tables, verify limits aren't exceeded
+7. **Adapter call** -- delegate to D1 or Postgres adapter
+8. **Response** -- JSON with appropriate status code
+
+The API uses two categories of adapters:
+- **Tenant adapters** (`D1TenantAdapter`, `PostgresTenantAdapter`) -- manage tenants and workspaces
+- **Data adapters** (`D1Adapter` from `@marlinjai/data-table-adapter-d1`, `PostgresDataAdapter` local) -- handle tables, columns, rows, views via the `DatabaseAdapter` interface
 
 ### Layer 3: Storage
 
-Cloudflare D1 provides SQLite-based storage at the edge. The `@marlinjai/data-table-adapter-d1` package implements all 43 `DatabaseAdapter` methods, so Data Brain reuses the same adapter used by the Data Table component.
+- **Cloudflare D1** (default) -- SQLite at the edge, zero config. Uses `@marlinjai/data-table-adapter-d1` (the same adapter the Data Table component uses directly).
+- **PostgreSQL** (self-hosted) -- same interface, different backend. Uses a local `PostgresDataAdapter`.
 
-## Tenant Isolation Model
-
-Every request goes through the following isolation flow:
-
-```
-Request with Bearer token
-    |
-    v
-Extract API key from Authorization header
-    |
-    v
-SHA-256 hash the key (Web Crypto API)
-    |
-    v
-Look up hash in tenants table
-    |
-    v
-Attach tenant context to request
-    |
-    v
-Use tenant.id as workspaceId for all operations
-    |
-    v
-Verify resource ownership before every read/write
-```
-
-Key properties:
-- **Stateless** -- No session management; each request is independently authenticated
-- **Workspace-scoped** -- The tenant ID becomes the `workspaceId` parameter for all adapter calls
-- **Ownership-verified** -- Before accessing a table, column, row, or view, the API confirms it belongs to the authenticated tenant's workspace
-
-## Data Flow Examples
-
-### Create Table
-
-```
-SDK: db.createTable({ name: "Contacts" })
-  |
-  POST /api/v1/tables { name: "Contacts" }
-  |
-  API: authMiddleware -> validate body -> getWorkspaceId(tenant.id)
-  |
-  D1Adapter: INSERT INTO dt_tables (id, workspace_id, name, ...)
-  |
-  Response: 201 { id: "tbl_...", name: "Contacts", ... }
-```
-
-### Query Rows
-
-```
-SDK: db.getRows(tableId, { limit: 50, filters: [...] })
-  |
-  GET /api/v1/tables/:tableId/rows?limit=50&filters=[...]
-  |
-  API: authMiddleware -> verifyTableOwnership -> parse query
-  |
-  D1Adapter: SELECT * FROM dt_rows WHERE table_id = ? ...
-  |
-  Response: 200 { rows: [...], total: 42 }
-```
+Both implement the full `DatabaseAdapter` interface, so the API layer is backend-agnostic.
 
 ## Package Structure
 
 ```
 data-brain/
 ├── packages/
-│   ├── shared/              @data-brain/shared (internal)
-│   │   ├── types.ts         Tenant, TenantInfo, BatchOperation types
-│   │   ├── schemas.ts       Zod validation schemas for all endpoints
-│   │   └── constants.ts     API key prefixes, quotas, rate limits
+│   ├── shared/                 @data-brain/shared (internal)
+│   │   ├── types.ts            Tenant, Workspace, TenantInfo, TenantContext
+│   │   ├── schemas.ts          Zod schemas for all endpoints
+│   │   └── constants.ts        Quotas, limits, API key prefixes
 │   │
-│   ├── api/                 @data-brain/api (Cloudflare Worker)
-│   │   ├── index.ts         Hono app with all route groups
-│   │   ├── adapter.ts       D1Adapter factory, workspaceId helper
-│   │   ├── env.ts           Environment type definitions
+│   ├── api/                    @data-brain/api (Cloudflare Worker / Node.js)
+│   │   ├── app.ts              Hono app setup, route registration
+│   │   ├── node.ts             Node.js entry point (self-hosted)
+│   │   ├── adapters/
+│   │   │   ├── tenant/         D1TenantAdapter, PostgresTenantAdapter
+│   │   │   └── data/           PostgresDataAdapter (D1 uses @marlinjai/data-table-adapter-d1)
 │   │   ├── middleware/
-│   │   │   ├── auth.ts      API key hashing + tenant lookup
-│   │   │   ├── ownership.ts Table/column/row ownership verification
-│   │   │   └── error-handler.ts  Structured error responses
-│   │   ├── routes/          One file per resource group
-│   │   └── services/
-│   │       └── tenant.ts    Tenant provisioning + API key generation
+│   │   │   ├── auth.ts         API key hashing + tenant lookup
+│   │   │   ├── quota.ts        Row/table quota enforcement
+│   │   │   └── error-handler.ts
+│   │   ├── routes/             One file per resource (tables, columns, rows, ...)
+│   │   └── migrations/         SQL schema files
 │   │
-│   └── sdk/                 @marlinjai/data-brain-sdk (npm)
-│       ├── client.ts        DataBrain class with 43 methods
-│       ├── types.ts         DataBrainConfig, TenantInfo, etc.
-│       ├── errors.ts        Typed error hierarchy
-│       └── constants.ts     Retry configuration
+│   └── sdk/                    @marlinjai/data-brain-sdk (npm, v0.2.0)
+│       ├── client.ts           DataBrain class (46 methods)
+│       ├── admin.ts            DataBrainAdmin class (tenant provisioning)
+│       ├── errors.ts           Typed error hierarchy
+│       └── types.ts            Config types, workspace types
 ```
 
-## D1 Schema
+## Database Schema
 
-Data Brain uses two categories of tables in D1:
-
-### Tenant Management
+### Tenant & Workspace Management
 
 | Table | Purpose |
 |-------|---------|
 | `tenants` | Tenant records with hashed API keys, quotas, and usage counters |
+| `workspaces` | Workspace records scoped to tenants, with optional per-workspace quotas |
 
-### Data Tables (managed by D1Adapter)
+### Data Tables (managed by DatabaseAdapter)
 
 | Table | Purpose |
 |-------|---------|
@@ -188,114 +218,61 @@ Data Brain uses two categories of tables in D1:
 | `dt_relations` | Row-to-row relation links |
 | `dt_files` | File reference records linking external files to rows |
 
+## API Endpoints (53 routes)
+
+### Admin (requires `ADMIN_API_KEY`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/admin/tenants` | Create tenant, returns raw API key |
+| GET | `/api/v1/admin/tenants` | List tenants (cursor pagination) |
+| GET | `/api/v1/admin/tenants/:id` | Tenant detail + quota usage |
+| PATCH | `/api/v1/admin/tenants/:id` | Update tenant |
+| DELETE | `/api/v1/admin/tenants/:id` | Delete tenant + cascade |
+| POST | `/api/v1/admin/tenants/:id/regenerate-key` | Regenerate tenant API key |
+
+### Tenant & Workspaces (requires API key)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/tenant/info` | Current tenant quotas and usage |
+| GET/POST | `/api/v1/workspaces` | List / create workspaces |
+| GET/PATCH/DELETE | `/api/v1/workspaces/:id` | Read / update / delete workspace |
+
+### Data Operations (requires API key + workspace)
+
+| Resource | Endpoints |
+|----------|-----------|
+| **Tables** | CRUD on `/api/v1/tables` |
+| **Columns** | CRUD on `/api/v1/tables/:id/columns`, reorder |
+| **Rows** | CRUD + bulk create/delete/archive, filtering, sorting, pagination |
+| **Views** | CRUD on `/api/v1/tables/:id/views`, reorder |
+| **Select Options** | CRUD on `/api/v1/columns/:id/options`, reorder |
+| **Relations** | Create/delete/query on `/api/v1/relations` (no reorder) |
+| **File References** | Add/remove/list/reorder on `/api/v1/file-refs` |
+
 ## Security Model
 
-- **API key hashing** -- Keys are hashed with SHA-256 via the Web Crypto API before storage. SHA-256 is used instead of bcrypt because tenant lookup requires synchronous hash comparison, and SHA-256 is fast enough for per-request auth
-- **Admin key comparison** -- The admin API key is compared using `crypto.subtle.timingSafeEqual` to prevent timing attacks
-- **Ownership verification** -- Every resource access verifies the resource belongs to the authenticated tenant's workspace
-- **Zod validation** -- All request bodies are validated against strict schemas before processing
+- **API key hashing** -- Keys hashed with SHA-256 via Web Crypto API before storage
+- **Admin key** -- Compared using `crypto.subtle.timingSafeEqual` to prevent timing attacks
+- **Ownership verification** -- Every resource access verifies it belongs to the authenticated tenant's workspace
+- **Zod validation** -- All request bodies validated against strict schemas
 - **Bulk safety** -- Bulk operations verify ownership of every row before proceeding
+- **Quota enforcement** -- Row and table limits checked atomically before writes
 
-## Deployment
+## Deployment Options
 
-Data Brain deploys as a single Cloudflare Worker with a D1 binding:
+### Cloudflare Workers (Production)
 
-```
-Cloudflare Worker
-+-- Hono App
-|   +-- GET  /health
-|   +-- GET  /api/v1/tables (+ POST, GET/:id, PATCH/:id, DELETE/:id)
-|   +-- GET  /api/v1/tables/:id/columns (+ POST, reorder)
-|   +-- GET  /api/v1/columns/:id (+ PATCH, DELETE)
-|   +-- GET  /api/v1/tables/:id/rows (+ POST, bulk)
-|   +-- GET  /api/v1/rows/:id (+ PATCH, DELETE, archive, unarchive)
-|   +-- GET  /api/v1/tables/:id/views (+ POST, reorder)
-|   +-- GET  /api/v1/views/:id (+ PATCH, DELETE)
-|   +-- GET  /api/v1/columns/:id/options (+ POST, reorder)
-|   +-- PATCH /api/v1/options/:id (+ DELETE)
-|   +-- POST /api/v1/relations (+ DELETE, GET)
-|   +-- POST /api/v1/file-refs (+ DELETE, GET, reorder)
-|   +-- GET  /api/v1/tenant/info
-|   +-- POST /api/v1/admin/tenants
-+-- Bindings
-    +-- DB: Cloudflare D1 (data-brain-db)
-    +-- ADMIN_API_KEY: Secret
-    +-- ENVIRONMENT: Variable
-```
+Deploys as a single Worker with a D1 database binding. Production URL: `https://data-brain-api.marlin-pohl.workers.dev`
 
 ### Self-Hosted (Docker)
 
-Run the same API with PostgreSQL via `docker-compose up`:
+Same API running on Node.js with PostgreSQL:
 
 ```
 docker-compose.yml
-+-- api        (Node.js, port 3001)
-+-- postgres   (PostgreSQL 16)
+├── api        (Node.js + Hono, port 3001)
+└── postgres   (PostgreSQL 16)
 ```
 
-The `PostgresDatabaseAdapter` implements the same `DatabaseAdapter` interface as the D1Adapter, so the API routes are identical regardless of backend.
-
-## BYOS -- Bring Your Own Database
-
-Enterprise customers on the **Cloud Team** tier can connect their own managed Postgres database while still using the Lumitra Cloud-hosted Data Brain API. This satisfies data residency and compliance requirements -- structured data never touches Lumitra infrastructure.
-
-### How It Works
-
-```
-Client App → Data Brain Cloud API → Auth middleware → Resolve tenant
-                                                          |
-                                          ┌───────────────┴───────────────┐
-                                          |                               |
-                                    tenant.databaseConfig            No custom config
-                                    is set                           (default)
-                                          |                               |
-                                    Decrypt connection string       Use managed D1
-                                          |
-                                    PostgresDatabaseAdapter
-                                          |
-                                    Customer's Postgres
-                                    (Neon, Supabase, RDS, Railway)
-```
-
-### Per-Tenant Database Adapter Resolution
-
-The adapter resolution pattern checks each tenant's configuration at request time:
-
-```typescript
-async function getDatabaseAdapter(tenant: Tenant): Promise<TenantDatabaseAdapter> {
-  if (tenant.databaseConfig) {
-    // BYOS tenant -- decrypt their connection string, instantiate Postgres adapter
-    const config = await decrypt(tenant.databaseConfig, env.ENCRYPTION_KEY);
-    return new PostgresDatabaseAdapter({
-      connectionString: config.connectionString,
-      maxConnections: config.maxConnections ?? 5,
-    });
-  }
-  // Default: use managed D1
-  return new D1DatabaseAdapter(env.DB);
-}
-```
-
-### Why This Works
-
-- **The PostgresAdapter already exists** -- It is the same adapter used in self-hosted mode. BYOS reuses it with customer-provided connection strings instead of local environment variables.
-- **Same interface, different backend** -- Both `D1DatabaseAdapter` and `PostgresDatabaseAdapter` implement the full `DatabaseAdapter` interface (43 methods). The API routes are backend-agnostic.
-- **Tenant management stays on D1** -- The `tenants` table (API keys, quotas, BYOS config) remains on Lumitra's managed D1. Only the `dt_*` data tables live on the customer's Postgres.
-- **Automatic migrations** -- On first connection, Data Brain runs its migration set on the customer's database to create the required `dt_*` tables.
-
-### Supported Postgres Providers
-
-| Provider | Notes |
-|----------|-------|
-| **Neon** | Serverless Postgres, built-in connection pooling, recommended for BYOS |
-| **Supabase** | Managed Postgres with generous free tier |
-| **AWS RDS** | Standard managed Postgres, good for AWS-centric enterprises |
-| **Railway** | Simple managed Postgres, easy setup |
-| **Any Postgres-compatible** | Any database accepting standard `postgresql://` connection strings |
-
-### Credential Security
-
-- Connection strings are encrypted at rest using Cloudflare Workers `crypto.subtle` with a KMS-managed key
-- Credentials are decrypted only at request time and never logged
-- A connectivity test (`SELECT 1`) runs before credentials are saved
-- Customers can rotate connection strings via the Lumitra Cloud dashboard

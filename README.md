@@ -1,6 +1,6 @@
 ---
 title: Data Brain
-summary: README for Data Brain, a structured data as a service platform wrapping the full DatabaseAdapter interface (43 methods) as REST endpoints on Cloudflare Workers with D1, multi-tenant workspaces, and a TypeScript SDK.
+summary: README for Data Brain, a structured data as a service platform wrapping the full DatabaseAdapter interface (40 methods) as REST endpoints on Cloudflare Workers with D1, multi-tenant workspaces, and a TypeScript SDK.
 category: documentation
 tags: [data-brain, api, cloudflare, multi-tenant, sdk]
 status: active
@@ -11,7 +11,7 @@ date: 2026-02-20
 
 Structured data as a service -- the database equivalent of [Storage Brain](https://github.com/marlinjai/storage-brain).
 
-Data Brain wraps the full [`DatabaseAdapter`](https://github.com/marlinjai/marlinjai-data-table) interface (43 methods) as REST endpoints, backed by Cloudflare D1. A TypeScript SDK (`@marlinjai/data-brain-sdk`) provides a typed client for all operations.
+Data Brain wraps the full [`DatabaseAdapter`](https://github.com/marlinjai/marlinjai-data-table) interface (40 methods) as REST endpoints, backed by Cloudflare D1. A TypeScript SDK (`@marlinjai/data-brain-sdk`) provides a typed client for all operations.
 
 **Production URL:** `https://data-brain-api.marlin-pohl.workers.dev`
 
@@ -27,7 +27,7 @@ Client App
 ```
 
 - **Multi-tenant:** Each API key maps to a tenant; all data is scoped by tenant + workspace.
-- **43 DatabaseAdapter methods:** Tables, columns, rows, views, relations, select options, file references.
+- **40 DatabaseAdapter methods:** Tables, columns, rows, views, relations, select options, file references.
 - **Edge-first:** Runs on Cloudflare Workers with D1 for minimal latency.
 - **Workspace isolation:** Data is partitioned into workspaces within each tenant. Pass `X-Workspace-Id` header or configure the SDK with `workspaceId`.
 
@@ -56,6 +56,11 @@ All data endpoints require `Authorization: Bearer <api_key>` header. Workspace-s
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/v1/admin/tenants` | Create a new tenant (returns tenant info + raw API key) |
+| GET | `/api/v1/admin/tenants` | List all tenants (cursor pagination) |
+| GET | `/api/v1/admin/tenants/:tenantId` | Get tenant detail + quota usage |
+| PATCH | `/api/v1/admin/tenants/:tenantId` | Update a tenant (name, quotas) |
+| DELETE | `/api/v1/admin/tenants/:tenantId` | Delete a tenant + cascade all data |
+| POST | `/api/v1/admin/tenants/:tenantId/regenerate-key` | Regenerate a tenant's API key |
 
 ### Tenant
 
@@ -163,7 +168,7 @@ All data endpoints require `Authorization: Bearer <api_key>` header. Workspace-s
 
 ### Batch (currently disabled)
 
-The batch endpoint `POST /api/v1/rpc/batch` is disabled pending per-operation tenant ownership checks. It supports all 43 adapter methods in a single request.
+The batch endpoint `POST /api/v1/rpc/batch` is disabled pending per-operation tenant ownership checks. It supports all 40 adapter methods in a single request.
 
 ---
 

@@ -269,6 +269,8 @@ GET /api/v1/tables/:tableId/rows
 | `offset` | number | 0 | Number of rows to skip |
 | `cursor` | string | -- | Pagination cursor |
 | `includeArchived` | boolean | false | Include archived rows |
+| `parentRowId` | string | -- | Filter by parent row (for sub-items) |
+| `includeSubItems` | boolean | false | Include sub-items in results |
 | `filters` | string | -- | JSON-encoded array of filter objects |
 | `sorts` | string | -- | JSON-encoded array of sort objects |
 
@@ -838,6 +840,111 @@ POST /api/v1/admin/tenants
 ```
 
 > **Important:** The `apiKey` field is only returned once at creation. Store it securely.
+
+### List Tenants
+
+```
+GET /api/v1/admin/tenants
+```
+
+**Auth:** Admin API key (Bearer token)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `cursor` | string | -- | Pagination cursor |
+| `limit` | number | 50 | Results per page |
+
+**Example Response (200):**
+
+```json
+{
+  "tenants": [
+    {
+      "id": "tenant-uuid",
+      "name": "My Application",
+      "quotaRows": 100000,
+      "usedRows": 1234,
+      "maxTables": 100,
+      "createdAt": "2026-02-20T10:00:00.000Z"
+    }
+  ],
+  "cursor": "next-cursor-token"
+}
+```
+
+### Get Tenant
+
+```
+GET /api/v1/admin/tenants/:tenantId
+```
+
+**Auth:** Admin API key (Bearer token)
+
+**Error Responses:**
+- `404` -- Tenant not found
+
+### Update Tenant
+
+```
+PATCH /api/v1/admin/tenants/:tenantId
+```
+
+**Auth:** Admin API key (Bearer token)
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New tenant name |
+| `quotaRows` | number | No | New row quota |
+| `maxTables` | number | No | New table limit |
+
+**Error Responses:**
+- `404` -- Tenant not found
+
+### Delete Tenant
+
+```
+DELETE /api/v1/admin/tenants/:tenantId
+```
+
+**Auth:** Admin API key (Bearer token)
+
+Deletes the tenant and cascades to all workspaces, tables, rows, and other data. This action is irreversible.
+
+**Example Response (200):**
+
+```json
+{ "success": true }
+```
+
+**Error Responses:**
+- `404` -- Tenant not found
+
+### Regenerate Tenant API Key
+
+```
+POST /api/v1/admin/tenants/:tenantId/regenerate-key
+```
+
+**Auth:** Admin API key (Bearer token)
+
+Generates a new API key for the tenant and invalidates the old one.
+
+**Example Response (200):**
+
+```json
+{
+  "apiKey": "sk_live_new_key_here..."
+}
+```
+
+> **Important:** The new `apiKey` is only returned once. The previous key is immediately invalidated.
+
+**Error Responses:**
+- `404` -- Tenant not found
 
 ---
 
