@@ -16,7 +16,7 @@
     "publish:sdk": "pnpm --filter @marlinjai/data-brain-sdk build && pnpm --filter @marlinjai/data-brain-sdk publish --access public"
   },
   "devDependencies": {
-    "@marlinjai/clearify": "^1.9.0",
+    "@marlinjai/clearify": "^1.11.0",
     "@types/node": "^20.11.0",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18"
